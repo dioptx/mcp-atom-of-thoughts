@@ -1,0 +1,56 @@
+{
+  "name": "@dioptx/mcp-atom-of-thoughts",
+  "version": "2.0.0",
+  "description": "MCP server for structured reasoning via Atom of Thoughts — decompose problems into atomic units with confidence tracking and interactive visualization",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "mcp-atom-of-thoughts": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js && cp assets/d3.v7.min.js build/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "build",
+    "assets/d3.v7.min.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "reasoning",
+    "atom-of-thoughts",
+    "decomposition",
+    "claude",
+    "ai-reasoning",
+    "visualization",
+    "d3"
+  ],
+  "author": "dioptx",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dioptx/mcp-atom-of-thoughts.git"
+  },
+  "homepage": "https://github.com/dioptx/mcp-atom-of-thoughts#readme",
+  "bugs": {
+    "url": "https://github.com/dioptx/mcp-atom-of-thoughts/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "chalk": "^5.3.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.13",
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}

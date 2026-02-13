@@ -1,0 +1,42 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: [full, fast, both]
+        default: both
+        description: Which reasoning tools to expose
+      noViz:
+        type: boolean
+        default: false
+        description: Disable visualization and approval tools
+      noApproval:
+        type: boolean
+        default: false
+        description: Disable approval workflow only
+      maxDepth:
+        type: number
+        default: 5
+        description: Maximum reasoning depth
+      outputDir:
+        type: string
+        description: Visualization output directory
+      downloadsDir:
+        type: string
+        description: Approval file scan directory
+  commandFunction:
+    |-
+    (config) => {
+      const args = ['build/index.js'];
+      if (config.mode) args.push('--mode', config.mode);
+      if (config.noViz) args.push('--no-viz');
+      if (config.noApproval) args.push('--no-approval');
+      if (config.maxDepth) args.push('--max-depth', String(config.maxDepth));
+      if (config.outputDir) args.push('--output-dir', config.outputDir);
+      if (config.downloadsDir) args.push('--downloads-dir', config.downloadsDir);
+      return { command: 'node', args };
+    }
+  exampleConfig:
+    mode: both
