@@ -17,7 +17,8 @@
     "build",
     "assets/d3.v7.min.js",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "mcp",
