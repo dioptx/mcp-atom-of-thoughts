@@ -13,7 +13,7 @@ import { parseArgs } from './config.js';
 const config = parseArgs(process.argv);
 
 const server = new Server(
-  { name: "@dioptx/mcp-atom-of-thoughts", version: "2.0.0" },
+  { name: "@dioptx/mcp-atom-of-thoughts", version: "2.1.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -129,7 +129,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`@dioptx/mcp-atom-of-thoughts v2.0.0 | mode=${config.mode} viz=${config.vizEnabled} approval=${config.approvalEnabled} maxDepth=${config.maxDepth}`);
+  console.error(`@dioptx/mcp-atom-of-thoughts v2.1.0 | mode=${config.mode} viz=${config.vizEnabled} approval=${config.approvalEnabled} maxDepth=${config.maxDepth}`);
 }
 
 runServer().catch((error) => {

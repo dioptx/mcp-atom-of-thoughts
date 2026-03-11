@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.1.0] — 2026-03-11
+
+### Changed
+
+- **Visualization off by default** — pass `--viz` to enable (was `--no-viz` to disable)
+- **Lenient validation** — partial atom inputs accepted; missing fields get sensible defaults
+- **Shorter tool descriptions** — improved display in Claude Code tool listings
+- **Removed `isError`** from non-error response shapes for cleaner MCP compliance
+
+### Fixed
+
+- Tests updated to match new defaults and validation behavior
+
+---
+
 ## [2.0.0] — 2026-02-13
 
 Initial public release.
