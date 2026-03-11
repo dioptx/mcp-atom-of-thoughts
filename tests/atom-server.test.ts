@@ -55,14 +55,24 @@ describe('AtomOfThoughtsServer', () => {
         .toThrow('Invalid atomType');
     });
 
-    it('throws for non-array dependencies', () => {
-      expect(() => server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', dependencies: 'bad', confidence: 0.5 }))
-        .toThrow('Invalid dependencies');
+    it('defaults non-array dependencies to empty array', () => {
+      const result = server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', dependencies: 'bad', confidence: 0.5 });
+      expect(result.dependencies).toEqual([]);
     });
 
-    it('throws for out-of-range confidence', () => {
-      expect(() => server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', dependencies: [], confidence: 1.5 }))
-        .toThrow('Invalid confidence');
+    it('defaults missing dependencies to empty array', () => {
+      const result = server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', confidence: 0.5 });
+      expect(result.dependencies).toEqual([]);
+    });
+
+    it('defaults out-of-range confidence to 0.7', () => {
+      const result = server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', dependencies: [], confidence: 1.5 });
+      expect(result.confidence).toBe(0.7);
+    });
+
+    it('defaults missing confidence to 0.7', () => {
+      const result = server.validateAtomData({ atomId: 'P1', content: 'x', atomType: 'premise', dependencies: [] });
+      expect(result.confidence).toBe(0.7);
     });
 
     it('defaults isVerified to false', () => {
@@ -86,11 +96,12 @@ describe('AtomOfThoughtsServer', () => {
       expect(data.atomsCount).toBe(1);
     });
 
-    it('rejects invalid dependencies', () => {
+    it('rejects invalid dependencies with specific IDs', () => {
       const result = server.processAtom(makeReasoning('R1', 'test', ['NONEXISTENT']));
-      expect(result.isError).toBe(true);
+      expect(result.isError).toBeUndefined();
       const data = JSON.parse(result.content[0].text);
-      expect(data.error).toContain('dependency atoms do not exist');
+      expect(data.error).toContain('Dependencies not yet created: [NONEXISTENT]');
+      expect(data.hint).toBe('Fix the error and retry the call.');
     });
 
     it('accepts valid dependencies', () => {
@@ -114,9 +125,12 @@ describe('AtomOfThoughtsServer', () => {
       expect(server.getAtomOrder()).toEqual(['P1', 'P2']);
     });
 
-    it('returns error for invalid input', () => {
+    it('returns error for invalid input without isError flag', () => {
       const result = server.processAtom({});
-      expect(result.isError).toBe(true);
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.error).toBeTruthy();
+      expect(data.hint).toBe('Fix the error and retry the call.');
     });
   });
 

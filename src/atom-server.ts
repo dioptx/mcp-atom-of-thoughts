@@ -35,19 +35,17 @@ export class AtomOfThoughtsServer {
         !VALID_ATOM_TYPES.includes(data.atomType as AtomType)) {
       throw new Error('Invalid atomType: must be one of premise, reasoning, hypothesis, verification, conclusion');
     }
-    if (!Array.isArray(data.dependencies)) {
-      throw new Error('Invalid dependencies: must be an array of atom IDs');
-    }
-    if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-      throw new Error('Invalid confidence: must be a number between 0 and 1');
-    }
+    const dependencies = Array.isArray(data.dependencies) ? data.dependencies as string[] : [];
+    const confidence = (typeof data.confidence === 'number' && data.confidence >= 0 && data.confidence <= 1)
+      ? data.confidence as number
+      : 0.7;
 
     return {
       atomId: data.atomId as string,
       content: data.content as string,
       atomType: data.atomType as AtomType,
-      dependencies: data.dependencies as string[],
-      confidence: data.confidence as number,
+      dependencies,
+      confidence,
       created: data.created as number || Date.now(),
       isVerified: data.isVerified as boolean || false,
       depth: data.depth as number | undefined,
@@ -264,7 +262,8 @@ export class AtomOfThoughtsServer {
       const validatedInput = this.validateAtomData(input);
 
       if (validatedInput.dependencies.length > 0 && !this.validateDependencies(validatedInput.dependencies)) {
-        throw new Error('Invalid dependencies: one or more dependency atoms do not exist');
+        const missing = validatedInput.dependencies.filter(depId => this.atoms[depId] === undefined);
+        throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
       }
 
       if (validatedInput.depth === undefined) {
@@ -341,10 +340,10 @@ export class AtomOfThoughtsServer {
           type: "text",
           text: JSON.stringify({
             error: error instanceof Error ? error.message : String(error),
-            status: 'failed'
+            status: 'failed',
+            hint: 'Fix the error and retry the call.'
           }, null, 2)
-        }],
-        isError: true
+        }]
       };
     }
   }

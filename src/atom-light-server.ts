@@ -56,10 +56,10 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
           type: "text",
           text: JSON.stringify({
             error: error instanceof Error ? error.message : String(error),
-            status: 'failed'
+            status: 'failed',
+            hint: 'Fix the error and retry the call.'
           }, null, 2)
-        }],
-        isError: true
+        }]
       };
     }
   }

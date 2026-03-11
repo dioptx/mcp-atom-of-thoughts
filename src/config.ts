@@ -18,8 +18,8 @@ export function parseArgs(argv: string[]): ServerConfig {
   const args = argv.slice(2);
 
   let mode: ServerMode = 'both';
-  let vizEnabled = true;
-  let approvalEnabled = true;
+  let vizEnabled = false;
+  let approvalEnabled = false;
   let maxDepthOverride: number | undefined;
   let outputDir: string | undefined;
   let downloadsDir: string | undefined;
@@ -36,6 +36,10 @@ export function parseArgs(argv: string[]): ServerConfig {
         mode = val as ServerMode;
         break;
       }
+      case '--viz':
+        vizEnabled = true;
+        approvalEnabled = true;
+        break;
       case '--no-viz':
         vizEnabled = false;
         approvalEnabled = false;

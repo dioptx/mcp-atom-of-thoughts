@@ -24,8 +24,8 @@ describe('getAllTools', () => {
   it('has correct tool names', () => {
     const names = tools.map(t => t.name);
     expect(names).toEqual([
-      'AoT',
       'AoT-light',
+      'AoT',
       'atomcommands',
       'export_graph',
       'generate_visualization',
@@ -42,9 +42,9 @@ describe('getAllTools', () => {
     });
   });
 
-  it('AoT tool requires atomId, content, atomType, dependencies, confidence', () => {
+  it('AoT tool requires atomId, content, atomType', () => {
     const aot = tools.find(t => t.name === 'AoT')!;
-    expect(aot.inputSchema.required).toEqual(['atomId', 'content', 'atomType', 'dependencies', 'confidence']);
+    expect(aot.inputSchema.required).toEqual(['atomId', 'content', 'atomType']);
   });
 
   it('atomcommands tool requires command', () => {
@@ -78,11 +78,12 @@ describe('getTools', () => {
     expect(names).toContain('AoT-light');
   });
 
-  it('--mode both includes both AoT tools', () => {
+  it('--mode both includes both AoT tools with AoT-light first', () => {
     const tools = getTools(makeConfig({ mode: 'both' }));
     const names = tools.map(t => t.name);
     expect(names).toContain('AoT');
     expect(names).toContain('AoT-light');
+    expect(names.indexOf('AoT-light')).toBeLessThan(names.indexOf('AoT'));
   });
 
   it('always includes atomcommands and export_graph', () => {

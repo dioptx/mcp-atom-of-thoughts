@@ -62,8 +62,11 @@ describe('AtomOfThoughtsLightServer', () => {
     expect(data).not.toHaveProperty('conflictingAtoms');
   });
 
-  it('returns error for invalid input', () => {
+  it('returns error for invalid input without isError flag', () => {
     const result = server.processAtom({});
-    expect(result.isError).toBe(true);
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toBeTruthy();
+    expect(data.hint).toBe('Fix the error and retry the call.');
   });
 });

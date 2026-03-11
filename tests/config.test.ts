@@ -13,12 +13,12 @@ describe('parseArgs', () => {
       expect(parse().mode).toBe('both');
     });
 
-    it('enables viz by default', () => {
-      expect(parse().vizEnabled).toBe(true);
+    it('disables viz by default', () => {
+      expect(parse().vizEnabled).toBe(false);
     });
 
-    it('enables approval by default', () => {
-      expect(parse().approvalEnabled).toBe(true);
+    it('disables approval by default', () => {
+      expect(parse().approvalEnabled).toBe(false);
     });
 
     it('uses maxDepth 5 for both mode', () => {
@@ -64,23 +64,33 @@ describe('parseArgs', () => {
     });
   });
 
+  describe('--viz', () => {
+    it('enables viz', () => {
+      expect(parse('--viz').vizEnabled).toBe(true);
+    });
+
+    it('also enables approval', () => {
+      expect(parse('--viz').approvalEnabled).toBe(true);
+    });
+  });
+
   describe('--no-viz', () => {
     it('disables viz', () => {
-      expect(parse('--no-viz').vizEnabled).toBe(false);
+      expect(parse('--viz', '--no-viz').vizEnabled).toBe(false);
     });
 
     it('also disables approval', () => {
-      expect(parse('--no-viz').approvalEnabled).toBe(false);
+      expect(parse('--viz', '--no-viz').approvalEnabled).toBe(false);
     });
   });
 
   describe('--no-approval', () => {
     it('disables approval', () => {
-      expect(parse('--no-approval').approvalEnabled).toBe(false);
+      expect(parse('--viz', '--no-approval').approvalEnabled).toBe(false);
     });
 
     it('keeps viz enabled', () => {
-      expect(parse('--no-approval').vizEnabled).toBe(true);
+      expect(parse('--viz', '--no-approval').vizEnabled).toBe(true);
     });
   });
 
@@ -134,6 +144,7 @@ describe('parseArgs', () => {
     it('handles all flags together', () => {
       const config = parse(
         '--mode', 'full',
+        '--viz',
         '--no-approval',
         '--max-depth', '8',
         '--output-dir', '/out',
