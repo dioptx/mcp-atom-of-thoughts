@@ -7,7 +7,7 @@ Structured reasoning for LLMs. Decompose → track confidence → visualize.
 [![npm version](https://img.shields.io/npm/v/@dioptx/mcp-atom-of-thoughts?color=0969da)](https://www.npmjs.com/package/@dioptx/mcp-atom-of-thoughts)
 [![license](https://img.shields.io/npm/l/@dioptx/mcp-atom-of-thoughts?color=22c55e)](LICENSE)
 [![node](https://img.shields.io/node/v/@dioptx/mcp-atom-of-thoughts)](package.json)
-[![tests](https://img.shields.io/badge/tests-121%20passed-brightgreen)](#development)
+[![tests](https://img.shields.io/badge/tests-165%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
 ![Atom of Thoughts — interactive D3 visualization](assets/demo.png)
@@ -54,14 +54,15 @@ Atoms depend on each other, carry confidence scores (0–1), and auto-terminate 
 
 ## Tools
 
-| Tool | Purpose |
+Three tools, decided by what you're doing:
+
+| Tool | Use for |
 |------|---------|
-| `AoT` | Deep reasoning — atoms up to depth 5 |
-| `AoT-light` | Fast reasoning — depth 3, auto-suggests conclusions |
-| `atomcommands` | Decompose atoms, check termination, adjust depth |
-| `export_graph` | Get the atom graph as JSON |
-| `generate_visualization` | Open an interactive D3 graph in your browser |
-| `check_approval` | Poll for approve/reject decisions from the UI |
+| `AoT-fast` | Default reasoning — depth 3, auto-suggests conclusions, fits most tasks |
+| `AoT-full` | Deep reasoning with decomposition-contraction — depth 5, sub-atoms verified independently |
+| `atomcommands` | Lifecycle and meta ops: sessions, decomposition control, export, approval polling |
+
+Set `viz: true` on any AoT call when the user is reviewing your reasoning or you're in planning mode. The graph opens in the browser and approve/reject clicks POST back to the MCP server in-process — no filesystem polling.
 
 ---
 
@@ -72,32 +73,47 @@ Pass flags via `args` to change behavior:
 
 ```json
 {
-  "args": ["-y", "@dioptx/mcp-atom-of-thoughts", "--mode", "fast", "--no-viz"]
+  "args": ["-y", "@dioptx/mcp-atom-of-thoughts", "--mode", "fast", "--viz", "never"]
 }
 ```
 
 | Flag | Default | What it does |
 |------|---------|--------------|
-| `--mode full\|fast\|both` | `both` | Which reasoning tools to register |
-| `--no-viz` | off | Skip visualization and approval tools |
-| `--no-approval` | off | Skip approval tool only |
+| `--mode full\|fast\|both` | `both` | Which AoT tools to register |
+| `--viz auto\|always\|never` | `auto` | `auto` renders only when call sets `viz:true`; `always` renders every call; `never` ignores the param (CI/headless) |
 | `--max-depth <n>` | 5 / 3 | Override reasoning depth limit |
 | `--output-dir <path>` | OS temp | Where to write visualization HTML |
-| `--downloads-dir <path>` | ~/Downloads | Where to scan for approval files |
+| `--downloads-dir <path>` | ~/Downloads | Fallback dir for approval JSON if HTTP callback can't bind |
+
+</details>
+
+<details>
+<summary><b>Sessions</b></summary>
+
+Each reasoning problem lives in its own session so atoms don't leak between problems in a long-running MCP process.
+
+- Default session is `"default"` and is created at startup.
+- AoT calls accept an optional `sessionId` to target a specific session (auto-creates if unknown).
+- `atomcommands` exposes `new_session`, `switch_session`, `list_sessions`, `reset_session`.
+- When reasoning terminates (max depth or strong conclusion), the session is auto-archived as `completed`.
+- The next zero-dependency atom with no explicit `sessionId` auto-spawns a fresh `default-N` — so you don't have to manage sessions explicitly across problems.
+
+Every `processAtom` response includes `sessionId` so you always know what's being written to.
 
 </details>
 
 <details>
 <summary><b>Visualization & Approval</b></summary>
 
-`generate_visualization` creates a self-contained HTML file (D3 bundled inline — works offline) and opens it in your browser. The UI shows:
+`viz: true` on an AoT call generates a self-contained HTML file (D3 bundled inline — works offline) and opens it in your browser. The UI shows:
 
 - Force-directed graph of all atoms and their dependencies
 - Color-coded nodes by type with confidence rings
 - Sidebar to approve/reject each phase or individual atom
-- JSON export that `check_approval` can poll
 
-No internet connection required — everything is inlined into a single HTML file.
+When you click approve/reject, the browser POSTs the decision back to a local 127.0.0.1 listener the MCP server runs on an ephemeral port. `atomcommands` `check_approval` reads the in-memory store keyed by session — no filesystem polling, no `~/Downloads` dump.
+
+If the listener can't bind (rare — locked-down corp machine), the browser falls back to a file download in `~/Downloads` and `check_approval` falls back to scanning that dir.
 
 </details>
 
@@ -139,7 +155,7 @@ docker build -t aot .
 git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
 cd mcp-atom-of-thoughts
 npm install
-npm test        # 121 tests
+npm test        # 165 tests
 npm run build
 ```
 

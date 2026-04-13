@@ -16,7 +16,7 @@ const config = parseArgs(process.argv);
 const approvalServer = new ApprovalCallbackServer();
 
 const server = new Server(
-  { name: "@dioptx/mcp-atom-of-thoughts", version: "3.0.0-dev" },
+  { name: "@dioptx/mcp-atom-of-thoughts", version: "3.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -211,7 +211,7 @@ async function runServer() {
   const callbackStatus = callbackInfo
     ? `approval=http://127.0.0.1:${callbackInfo.port}`
     : 'approval=file-fallback';
-  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth} ${callbackStatus}`);
+  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0 | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth} ${callbackStatus}`);
 }
 
 runServer().catch((error) => {
