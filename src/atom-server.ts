@@ -447,29 +447,35 @@ export class AtomOfThoughtsServer {
       const dependentAtoms = this.getDependentAtoms(session, validatedInput.atomId);
       const conflictingAtoms = this.findConflictingAtoms(session, validatedInput);
 
+      const payload: Record<string, unknown> = {
+        atomId: validatedInput.atomId,
+        atomType: validatedInput.atomType,
+        isVerified: validatedInput.isVerified,
+        confidence: validatedInput.confidence,
+        depth: validatedInput.depth,
+        sessionId: session.id,
+        atomsCount: Object.keys(session.atoms).length,
+      };
+      // Only include collection fields when non-empty.
+      if (dependentAtoms.length > 0) payload.dependentAtoms = dependentAtoms;
+      if (conflictingAtoms.length > 0) payload.conflictingAtoms = conflictingAtoms;
+      if (session.verifiedConclusions.length > 0) payload.verifiedConclusions = session.verifiedConclusions;
+      if (session.currentDecompositionId) payload.currentDecomposition = session.currentDecompositionId;
+      // Termination only when meaningful (i.e. shouldTerminate=true). The default
+      // "Continue reasoning" reason adds noise to every call.
+      if (terminationStatus.shouldTerminate) {
+        payload.terminationStatus = terminationStatus;
+      }
+      if (bestConclusion) {
+        payload.bestConclusion = {
+          atomId: bestConclusion.atomId,
+          content: bestConclusion.content,
+          confidence: bestConclusion.confidence,
+        };
+      }
+
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            atomId: validatedInput.atomId,
-            atomType: validatedInput.atomType,
-            isVerified: validatedInput.isVerified,
-            confidence: validatedInput.confidence,
-            depth: validatedInput.depth,
-            sessionId: session.id,
-            atomsCount: Object.keys(session.atoms).length,
-            dependentAtoms,
-            conflictingAtoms,
-            verifiedConclusions: session.verifiedConclusions,
-            terminationStatus,
-            bestConclusion: bestConclusion ? {
-              atomId: bestConclusion.atomId,
-              content: bestConclusion.content,
-              confidence: bestConclusion.confidence
-            } : null,
-            currentDecomposition: session.currentDecompositionId
-          }, null, 2)
-        }]
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
       };
     } catch (error) {
       return {

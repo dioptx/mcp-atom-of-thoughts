@@ -61,24 +61,23 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
         session.status = 'completed';
       }
 
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            atomId: validatedInput.atomId,
-            atomType: validatedInput.atomType,
-            isVerified: validatedInput.isVerified,
-            confidence: validatedInput.confidence,
-            sessionId: session.id,
-            atomsCount: Object.keys(session.atoms).length,
-            bestConclusion: bestConclusion ? {
-              atomId: bestConclusion.atomId,
-              content: bestConclusion.content,
-              confidence: bestConclusion.confidence
-            } : null
-          }, null, 2)
-        }]
+      const payload: Record<string, unknown> = {
+        atomId: validatedInput.atomId,
+        atomType: validatedInput.atomType,
+        isVerified: validatedInput.isVerified,
+        confidence: validatedInput.confidence,
+        sessionId: session.id,
+        atomsCount: Object.keys(session.atoms).length,
       };
+      if (bestConclusion) {
+        payload.bestConclusion = {
+          atomId: bestConclusion.atomId,
+          content: bestConclusion.content,
+          confidence: bestConclusion.confidence,
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
     } catch (error) {
       return {
         content: [{
