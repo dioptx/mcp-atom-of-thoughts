@@ -8,14 +8,11 @@ startCommand:
         enum: [full, fast, both]
         default: both
         description: Which reasoning tools to expose
-      noViz:
-        type: boolean
-        default: false
-        description: Disable visualization and approval tools
-      noApproval:
-        type: boolean
-        default: false
-        description: Disable approval workflow only
+      vizMode:
+        type: string
+        enum: [auto, always, never]
+        default: auto
+        description: Visualization rendering mode. auto = render only when the AoT call sets viz:true; always = render every call; never = ignore viz param
       maxDepth:
         type: number
         default: 5
@@ -31,8 +28,7 @@ startCommand:
     (config) => {
       const args = ['build/index.js'];
       if (config.mode) args.push('--mode', config.mode);
-      if (config.noViz) args.push('--no-viz');
-      if (config.noApproval) args.push('--no-approval');
+      if (config.vizMode) args.push('--viz', config.vizMode);
       if (config.maxDepth) args.push('--max-depth', String(config.maxDepth));
       if (config.outputDir) args.push('--output-dir', config.outputDir);
       if (config.downloadsDir) args.push('--downloads-dir', config.downloadsDir);
@@ -40,3 +36,4 @@ startCommand:
     }
   exampleConfig:
     mode: both
+    vizMode: auto

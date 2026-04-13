@@ -10,7 +10,8 @@ const SHARED_ATOM_SCHEMA = {
     dependencies: { type: "array", items: { type: "string" }, description: "IDs of atoms this depends on (default: [])" },
     confidence: { type: "number", minimum: 0, maximum: 1, description: "Confidence 0-1 (default: 0.7)" },
     isVerified: { type: "boolean", description: "Whether this atom has been verified" },
-    depth: { type: "number", description: "Depth level (auto-calculated if omitted)" }
+    depth: { type: "number", description: "Depth level (auto-calculated if omitted)" },
+    viz: { type: "boolean", description: "Render and open a D3 visualization of the current graph after this atom (default: false). Set true during planning or when the user is reviewing your reasoning; leave false during execution." }
   },
   required: ["atomId", "content", "atomType"]
 };
@@ -32,6 +33,8 @@ Minimal 3-call example:
 
 Only atomId, content, and atomType are required. dependencies defaults to [], confidence defaults to 0.7.
 
+Visualization: set viz:true when the user is reviewing your reasoning or you're in a planning context. Leave viz off during execution flows. The server can override via --viz always or --viz never.
+
 Use AoT-full instead when you need >5 reasoning steps, multi-angle verification, or decomposition of sub-problems.`,
   inputSchema: SHARED_ATOM_SCHEMA
 };
@@ -44,7 +47,9 @@ Use for: implementation plans, architecture decisions, multi-step verification, 
 
 Trigger phrases: "plan", "design", "megathink", "full AoT", /aot-plan.
 
-Same atom types and parameters as AoT-fast. Drives decomposition via the atomcommands tool (decompose → sub-atoms → complete_decomposition). Reach for AoT-fast first unless you genuinely need the extra depth or decomposition.`,
+Same atom types and parameters as AoT-fast. Drives decomposition via the atomcommands tool (decompose → sub-atoms → complete_decomposition). Reach for AoT-fast first unless you genuinely need the extra depth or decomposition.
+
+Visualization: set viz:true on your final conclusion atom (or when the user is about to review the plan) to open an interactive D3 graph. Leave off during pure execution.`,
   inputSchema: SHARED_ATOM_SCHEMA
 };
 

@@ -2,24 +2,24 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 export type ServerMode = 'full' | 'fast' | 'both';
+export type VizMode = 'auto' | 'always' | 'never';
 
 export interface ServerConfig {
   mode: ServerMode;
-  vizEnabled: boolean;
-  approvalEnabled: boolean;
+  vizMode: VizMode;
   maxDepth: number;
   outputDir: string;
   downloadsDir: string;
 }
 
 const VALID_MODES: ServerMode[] = ['full', 'fast', 'both'];
+const VALID_VIZ_MODES: VizMode[] = ['auto', 'always', 'never'];
 
 export function parseArgs(argv: string[]): ServerConfig {
   const args = argv.slice(2);
 
   let mode: ServerMode = 'both';
-  let vizEnabled = false;
-  let approvalEnabled = false;
+  let vizMode: VizMode = 'auto';
   let maxDepthOverride: number | undefined;
   let outputDir: string | undefined;
   let downloadsDir: string | undefined;
@@ -36,17 +36,14 @@ export function parseArgs(argv: string[]): ServerConfig {
         mode = val as ServerMode;
         break;
       }
-      case '--viz':
-        vizEnabled = true;
-        approvalEnabled = true;
+      case '--viz': {
+        const val = args[++i];
+        if (!val || !VALID_VIZ_MODES.includes(val as VizMode)) {
+          throw new Error(`Invalid --viz value: ${val ?? '(missing)'}. Must be one of: auto, always, never`);
+        }
+        vizMode = val as VizMode;
         break;
-      case '--no-viz':
-        vizEnabled = false;
-        approvalEnabled = false;
-        break;
-      case '--no-approval':
-        approvalEnabled = false;
-        break;
+      }
       case '--max-depth': {
         const val = args[++i];
         const num = Number(val);
@@ -77,8 +74,7 @@ export function parseArgs(argv: string[]): ServerConfig {
 
   return {
     mode,
-    vizEnabled,
-    approvalEnabled,
+    vizMode,
     maxDepth: maxDepthOverride ?? defaultMaxDepth,
     outputDir: outputDir ?? path.join(os.tmpdir(), 'aot-diagrams'),
     downloadsDir: downloadsDir ?? path.join(os.homedir(), 'Downloads'),

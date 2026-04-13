@@ -13,12 +13,8 @@ describe('parseArgs', () => {
       expect(parse().mode).toBe('both');
     });
 
-    it('disables viz by default', () => {
-      expect(parse().vizEnabled).toBe(false);
-    });
-
-    it('disables approval by default', () => {
-      expect(parse().approvalEnabled).toBe(false);
+    it('uses vizMode auto by default', () => {
+      expect(parse().vizMode).toBe('auto');
     });
 
     it('uses maxDepth 5 for both mode', () => {
@@ -65,32 +61,28 @@ describe('parseArgs', () => {
   });
 
   describe('--viz', () => {
-    it('enables viz', () => {
-      expect(parse('--viz').vizEnabled).toBe(true);
+    it('accepts auto', () => {
+      expect(parse('--viz', 'auto').vizMode).toBe('auto');
     });
 
-    it('also enables approval', () => {
-      expect(parse('--viz').approvalEnabled).toBe(true);
-    });
-  });
-
-  describe('--no-viz', () => {
-    it('disables viz', () => {
-      expect(parse('--viz', '--no-viz').vizEnabled).toBe(false);
+    it('accepts always', () => {
+      expect(parse('--viz', 'always').vizMode).toBe('always');
     });
 
-    it('also disables approval', () => {
-      expect(parse('--viz', '--no-viz').approvalEnabled).toBe(false);
-    });
-  });
-
-  describe('--no-approval', () => {
-    it('disables approval', () => {
-      expect(parse('--viz', '--no-approval').approvalEnabled).toBe(false);
+    it('accepts never', () => {
+      expect(parse('--viz', 'never').vizMode).toBe('never');
     });
 
-    it('keeps viz enabled', () => {
-      expect(parse('--viz', '--no-approval').vizEnabled).toBe(true);
+    it('throws on invalid value', () => {
+      expect(() => parse('--viz', 'maybe')).toThrow('Invalid --viz');
+    });
+
+    it('throws on missing value', () => {
+      expect(() => parse('--viz')).toThrow('Invalid --viz');
+    });
+
+    it('last value wins when set twice', () => {
+      expect(parse('--viz', 'always', '--viz', 'never').vizMode).toBe('never');
     });
   });
 
@@ -144,15 +136,13 @@ describe('parseArgs', () => {
     it('handles all flags together', () => {
       const config = parse(
         '--mode', 'full',
-        '--viz',
-        '--no-approval',
+        '--viz', 'always',
         '--max-depth', '8',
         '--output-dir', '/out',
         '--downloads-dir', '/dl'
       );
       expect(config.mode).toBe('full');
-      expect(config.vizEnabled).toBe(true);
-      expect(config.approvalEnabled).toBe(false);
+      expect(config.vizMode).toBe('always');
       expect(config.maxDepth).toBe(8);
       expect(config.outputDir).toBe('/out');
       expect(config.downloadsDir).toBe('/dl');

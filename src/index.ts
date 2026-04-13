@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { AtomOfThoughtsServer } from './atom-server.js';
 import { AtomOfThoughtsLightServer } from './atom-light-server.js';
 import { exportGraph } from './graph-export.js';
+import { generateVisualizationHtml, writeVisualization, openInBrowser } from './visualization.js';
 import { checkApproval } from './approval.js';
 import { getTools } from './tools.js';
 import { parseArgs } from './config.js';
@@ -27,6 +28,54 @@ const atomLightServer = (config.mode === 'fast' || config.mode === 'both')
 const tools = getTools(config);
 const activeToolNames = new Set(tools.map(t => t.name));
 
+type AtomResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+function shouldRenderViz(params: Record<string, unknown>): boolean {
+  if (config.vizMode === 'never') return false;
+  if (config.vizMode === 'always') return true;
+  return params.viz === true;
+}
+
+function maybeAttachViz(
+  result: AtomResult,
+  params: Record<string, unknown>,
+  target: AtomOfThoughtsServer,
+): AtomResult {
+  if (result.isError || !shouldRenderViz(params)) return result;
+
+  try {
+    const data = exportGraph(target.getAtoms(), target.getAtomOrder());
+    const html = generateVisualizationHtml(data);
+    const filepath = writeVisualization(html, undefined, undefined, config.outputDir);
+    openInBrowser(filepath);
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(result.content[0].text);
+    } catch {
+      payload = { raw: result.content[0].text };
+    }
+    payload.viz = { filepath, atomCount: data.nodes.length, opened: true };
+
+    return {
+      ...result,
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    };
+  } catch (err) {
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(result.content[0].text);
+    } catch {
+      payload = { raw: result.content[0].text };
+    }
+    payload.viz = { error: err instanceof Error ? err.message : String(err) };
+    return {
+      ...result,
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    };
+  }
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools,
 }));
@@ -42,10 +91,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "AoT-full":
-        return atomServer!.processAtom(params);
+        return maybeAttachViz(atomServer!.processAtom(params), params, atomServer!);
 
       case "AoT-fast":
-        return atomLightServer!.processAtom(params);
+        return maybeAttachViz(atomLightServer!.processAtom(params), params, atomLightServer!);
 
       case "atomcommands": {
         const command = params.command as string;
@@ -118,7 +167,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} maxDepth=${config.maxDepth}`);
+  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth}`);
 }
 
 runServer().catch((error) => {

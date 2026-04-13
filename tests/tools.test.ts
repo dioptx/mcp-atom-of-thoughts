@@ -5,8 +5,7 @@ import type { ServerConfig } from '../src/config.js';
 function makeConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
   return {
     mode: 'both',
-    vizEnabled: true,
-    approvalEnabled: true,
+    vizMode: 'auto',
     maxDepth: 5,
     outputDir: '/tmp/aot',
     downloadsDir: '/tmp/dl',
@@ -48,6 +47,25 @@ describe('getAllTools', () => {
   it('atomcommands requires command', () => {
     const cmd = tools.find(t => t.name === 'atomcommands')!;
     expect(cmd.inputSchema.required).toEqual(['command']);
+  });
+
+  it('AoT-fast schema includes viz boolean param', () => {
+    const aot = tools.find(t => t.name === 'AoT-fast')!;
+    const props = aot.inputSchema.properties as Record<string, { type: string }>;
+    expect(props.viz).toBeDefined();
+    expect(props.viz.type).toBe('boolean');
+  });
+
+  it('AoT-full schema includes viz boolean param', () => {
+    const aot = tools.find(t => t.name === 'AoT-full')!;
+    const props = aot.inputSchema.properties as Record<string, { type: string }>;
+    expect(props.viz).toBeDefined();
+    expect(props.viz.type).toBe('boolean');
+  });
+
+  it('viz is optional (not in required list)', () => {
+    const aot = tools.find(t => t.name === 'AoT-fast')!;
+    expect(aot.inputSchema.required).not.toContain('viz');
   });
 
   it('atomcommands enum includes folded subcommands', () => {
