@@ -5,7 +5,6 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { AtomOfThoughtsServer } from './atom-server.js';
 import { AtomOfThoughtsLightServer } from './atom-light-server.js';
 import { exportGraph } from './graph-export.js';
-import { generateVisualizationHtml, writeVisualization, openInBrowser } from './visualization.js';
 import { checkApproval } from './approval.js';
 import { getTools } from './tools.js';
 import { parseArgs } from './config.js';
@@ -13,7 +12,7 @@ import { parseArgs } from './config.js';
 const config = parseArgs(process.argv);
 
 const server = new Server(
-  { name: "@dioptx/mcp-atom-of-thoughts", version: "2.1.0" },
+  { name: "@dioptx/mcp-atom-of-thoughts", version: "3.0.0-dev" },
   { capabilities: { tools: {} } }
 );
 
@@ -42,10 +41,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
-      case "AoT":
+      case "AoT-full":
         return atomServer!.processAtom(params);
 
-      case "AoT-light":
+      case "AoT-fast":
         return atomLightServer!.processAtom(params);
 
       case "atomcommands": {
@@ -85,34 +84,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             result = { status: 'success', command: 'set_max_depth', maxDepth, message: `Maximum depth set to ${maxDepth}` };
             break;
           }
+          case 'export': {
+            const title = params.title as string | undefined;
+            const data = exportGraph(target.getAtoms(), target.getAtomOrder(), title);
+            result = { status: 'success', command: 'export', graph: data };
+            break;
+          }
+          case 'check_approval': {
+            const downloadsDir = (params.downloadsDir as string | undefined) || config.downloadsDir;
+            const sessionStartTime = params.sessionStartTime as number | undefined;
+            const approval = checkApproval(downloadsDir, sessionStartTime);
+            result = { status: 'success', command: 'check_approval', approval };
+            break;
+          }
+          default:
+            throw new Error(`Unknown atomcommands command: ${command}`);
         }
 
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-      }
-
-      case "export_graph": {
-        const title = params.title as string | undefined;
-        const target = atomServer || atomLightServer!;
-        const data = exportGraph(target.getAtoms(), target.getAtomOrder(), title);
-        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-      }
-
-      case "generate_visualization": {
-        const title = params.title as string | undefined;
-        const outputDir = params.outputDir as string | undefined;
-        const target = atomServer || atomLightServer!;
-        const data = exportGraph(target.getAtoms(), target.getAtomOrder(), title);
-        const html = generateVisualizationHtml(data);
-        const filepath = writeVisualization(html, outputDir, undefined, config.outputDir);
-        openInBrowser(filepath);
-        return { content: [{ type: "text", text: JSON.stringify({ status: 'success', filepath, atomCount: data.nodes.length, linkCount: data.links.length }, null, 2) }] };
-      }
-
-      case "check_approval": {
-        const downloadsDir = (params.downloadsDir as string | undefined) || config.downloadsDir;
-        const sessionStartTime = params.sessionStartTime as number | undefined;
-        const approval = checkApproval(downloadsDir, sessionStartTime);
-        return { content: [{ type: "text", text: JSON.stringify(approval, null, 2) }] };
       }
 
       default:
@@ -129,7 +118,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`@dioptx/mcp-atom-of-thoughts v2.1.0 | mode=${config.mode} viz=${config.vizEnabled} approval=${config.approvalEnabled} maxDepth=${config.maxDepth}`);
+  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} maxDepth=${config.maxDepth}`);
 }
 
 runServer().catch((error) => {

@@ -14,11 +14,11 @@ describe('integration', () => {
     lightServer = new AtomOfThoughtsLightServer();
   });
 
-  it('getAllTools returns 6 tools', () => {
-    expect(getAllTools()).toHaveLength(6);
+  it('getAllTools returns 3 tools', () => {
+    expect(getAllTools()).toHaveLength(3);
   });
 
-  it('AoT processAtom works end-to-end', () => {
+  it('AoT-full processAtom works end-to-end', () => {
     const result = atomServer.processAtom({
       atomId: 'P1', content: 'Test', atomType: 'premise',
       dependencies: [], confidence: 0.9
@@ -27,7 +27,7 @@ describe('integration', () => {
     expect(JSON.parse(result.content[0].text).atomId).toBe('P1');
   });
 
-  it('AoT-light processAtom works end-to-end', () => {
+  it('AoT-fast processAtom works end-to-end', () => {
     const result = lightServer.processAtom({
       atomId: 'P1', content: 'Test', atomType: 'premise',
       dependencies: [], confidence: 0.9
@@ -36,7 +36,7 @@ describe('integration', () => {
     expect(JSON.parse(result.content[0].text).atomId).toBe('P1');
   });
 
-  it('export_graph works after adding atoms', () => {
+  it('atomcommands: export subcommand works after adding atoms', () => {
     atomServer.processAtom({ atomId: 'P1', content: 'Premise', atomType: 'premise', dependencies: [], confidence: 0.9 });
     atomServer.processAtom({ atomId: 'R1', content: 'Reasoning', atomType: 'reasoning', dependencies: ['P1'], confidence: 0.85 });
 
@@ -46,7 +46,7 @@ describe('integration', () => {
     expect(graph.title).toBe('Test');
   });
 
-  it('generate_visualization produces valid HTML from graph', () => {
+  it('visualization HTML is produced from graph (viz param path)', () => {
     atomServer.processAtom({ atomId: 'P1', content: 'Premise', atomType: 'premise', dependencies: [], confidence: 0.9 });
 
     const graph = exportGraph(atomServer.getAtoms(), atomServer.getAtomOrder());

@@ -17,20 +17,13 @@ function makeConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
 describe('getAllTools', () => {
   const tools = getAllTools();
 
-  it('returns exactly 6 tools', () => {
-    expect(tools).toHaveLength(6);
+  it('returns exactly 3 tools', () => {
+    expect(tools).toHaveLength(3);
   });
 
-  it('has correct tool names', () => {
+  it('has correct tool names in correct order', () => {
     const names = tools.map(t => t.name);
-    expect(names).toEqual([
-      'AoT-light',
-      'AoT',
-      'atomcommands',
-      'export_graph',
-      'generate_visualization',
-      'check_approval',
-    ]);
+    expect(names).toEqual(['AoT-fast', 'AoT-full', 'atomcommands']);
   });
 
   it('each tool has name, description, inputSchema', () => {
@@ -42,79 +35,79 @@ describe('getAllTools', () => {
     });
   });
 
-  it('AoT tool requires atomId, content, atomType', () => {
-    const aot = tools.find(t => t.name === 'AoT')!;
+  it('AoT-fast requires atomId, content, atomType', () => {
+    const aot = tools.find(t => t.name === 'AoT-fast')!;
     expect(aot.inputSchema.required).toEqual(['atomId', 'content', 'atomType']);
   });
 
-  it('atomcommands tool requires command', () => {
+  it('AoT-full requires atomId, content, atomType', () => {
+    const aot = tools.find(t => t.name === 'AoT-full')!;
+    expect(aot.inputSchema.required).toEqual(['atomId', 'content', 'atomType']);
+  });
+
+  it('atomcommands requires command', () => {
     const cmd = tools.find(t => t.name === 'atomcommands')!;
     expect(cmd.inputSchema.required).toEqual(['command']);
   });
 
-  it('export_graph has optional title', () => {
-    const exp = tools.find(t => t.name === 'export_graph')!;
-    expect(exp.inputSchema.required).toBeUndefined();
+  it('atomcommands enum includes folded subcommands', () => {
+    const cmd = tools.find(t => t.name === 'atomcommands')!;
+    const commandProp = (cmd.inputSchema.properties as Record<string, { enum?: string[] }>).command;
+    expect(commandProp.enum).toEqual(expect.arrayContaining([
+      'decompose',
+      'complete_decomposition',
+      'termination_status',
+      'best_conclusion',
+      'set_max_depth',
+      'export',
+      'check_approval',
+    ]));
+  });
+
+  it('v2 tool names are removed', () => {
+    const names = tools.map(t => t.name);
+    expect(names).not.toContain('AoT');
+    expect(names).not.toContain('AoT-light');
+    expect(names).not.toContain('generate_visualization');
+    expect(names).not.toContain('check_approval');
+    expect(names).not.toContain('export_graph');
   });
 });
 
 describe('getTools', () => {
-  it('returns all 6 tools with default config', () => {
+  it('returns all 3 tools with default (both) mode', () => {
     const tools = getTools(makeConfig());
-    expect(tools).toHaveLength(6);
+    expect(tools).toHaveLength(3);
+    expect(tools.map(t => t.name)).toEqual(['AoT-fast', 'AoT-full', 'atomcommands']);
   });
 
-  it('--mode full excludes AoT-light', () => {
+  it('--mode full excludes AoT-fast', () => {
     const tools = getTools(makeConfig({ mode: 'full' }));
     const names = tools.map(t => t.name);
-    expect(names).toContain('AoT');
-    expect(names).not.toContain('AoT-light');
+    expect(names).toContain('AoT-full');
+    expect(names).not.toContain('AoT-fast');
+    expect(names).toContain('atomcommands');
+    expect(tools).toHaveLength(2);
   });
 
-  it('--mode fast excludes AoT', () => {
+  it('--mode fast excludes AoT-full', () => {
     const tools = getTools(makeConfig({ mode: 'fast' }));
     const names = tools.map(t => t.name);
-    expect(names).not.toContain('AoT');
-    expect(names).toContain('AoT-light');
+    expect(names).toContain('AoT-fast');
+    expect(names).not.toContain('AoT-full');
+    expect(names).toContain('atomcommands');
+    expect(tools).toHaveLength(2);
   });
 
-  it('--mode both includes both AoT tools with AoT-light first', () => {
+  it('--mode both puts AoT-fast before AoT-full', () => {
     const tools = getTools(makeConfig({ mode: 'both' }));
     const names = tools.map(t => t.name);
-    expect(names).toContain('AoT');
-    expect(names).toContain('AoT-light');
-    expect(names.indexOf('AoT-light')).toBeLessThan(names.indexOf('AoT'));
+    expect(names.indexOf('AoT-fast')).toBeLessThan(names.indexOf('AoT-full'));
   });
 
-  it('always includes atomcommands and export_graph', () => {
-    const tools = getTools(makeConfig({ mode: 'fast', vizEnabled: false, approvalEnabled: false }));
-    const names = tools.map(t => t.name);
-    expect(names).toContain('atomcommands');
-    expect(names).toContain('export_graph');
-  });
-
-  it('vizEnabled=false removes generate_visualization', () => {
-    const tools = getTools(makeConfig({ vizEnabled: false, approvalEnabled: false }));
-    const names = tools.map(t => t.name);
-    expect(names).not.toContain('generate_visualization');
-  });
-
-  it('approvalEnabled=false removes check_approval', () => {
-    const tools = getTools(makeConfig({ approvalEnabled: false }));
-    const names = tools.map(t => t.name);
-    expect(names).not.toContain('check_approval');
-  });
-
-  it('vizEnabled=true but approvalEnabled=false keeps viz, removes approval', () => {
-    const tools = getTools(makeConfig({ approvalEnabled: false }));
-    const names = tools.map(t => t.name);
-    expect(names).toContain('generate_visualization');
-    expect(names).not.toContain('check_approval');
-  });
-
-  it('--mode fast --no-viz returns only 3 tools', () => {
-    const tools = getTools(makeConfig({ mode: 'fast', vizEnabled: false, approvalEnabled: false }));
-    expect(tools).toHaveLength(3);
-    expect(tools.map(t => t.name)).toEqual(['AoT-light', 'atomcommands', 'export_graph']);
+  it('atomcommands is always present', () => {
+    expect(getTools(makeConfig({ mode: 'fast' })).map(t => t.name)).toContain('atomcommands');
+    expect(getTools(makeConfig({ mode: 'full' })).map(t => t.name)).toContain('atomcommands');
+    expect(getTools(makeConfig({ mode: 'both' })).map(t => t.name)).toContain('atomcommands');
   });
 });
