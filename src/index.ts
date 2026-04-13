@@ -25,7 +25,10 @@ const atomServer = (config.mode === 'full' || config.mode === 'both')
   : null;
 
 const atomLightServer = (config.mode === 'fast' || config.mode === 'both')
-  ? new AtomOfThoughtsLightServer(config.mode === 'fast' ? config.maxDepth : undefined)
+  ? new AtomOfThoughtsLightServer(
+      config.mode === 'fast' ? config.maxDepth : undefined,
+      atomServer ?? undefined,
+    )
   : null;
 
 const tools = getTools(config);

@@ -2,8 +2,21 @@ import { AtomOfThoughtsServer } from './atom-server.js';
 import { Session } from './types.js';
 
 export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
-  constructor(maxDepth?: number) {
+  constructor(maxDepth?: number, shareStateWith?: AtomOfThoughtsServer) {
     super(maxDepth ?? 3);
+    if (shareStateWith) {
+      // Share the sessions map (object reference) so writes to one instance
+      // are visible to the other. activeSessionId is a primitive so we proxy
+      // reads/writes via Object.defineProperty pointing at the shared instance.
+      const shared = shareStateWith as unknown as { sessions: Record<string, Session>; activeSessionId: string };
+      const self = this as unknown as { sessions: Record<string, Session> };
+      self.sessions = shared.sessions;
+      Object.defineProperty(this, 'activeSessionId', {
+        configurable: true,
+        get(): string { return shared.activeSessionId; },
+        set(v: string): void { shared.activeSessionId = v; },
+      });
+    }
   }
 
   public processAtom(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
