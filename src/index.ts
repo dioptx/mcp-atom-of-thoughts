@@ -7,10 +7,13 @@ import { AtomOfThoughtsLightServer } from './atom-light-server.js';
 import { exportGraph } from './graph-export.js';
 import { generateVisualizationHtml, writeVisualization, openInBrowser } from './visualization.js';
 import { checkApproval } from './approval.js';
+import { ApprovalCallbackServer } from './approval-server.js';
 import { getTools } from './tools.js';
 import { parseArgs } from './config.js';
 
 const config = parseArgs(process.argv);
+
+const approvalServer = new ApprovalCallbackServer();
 
 const server = new Server(
   { name: "@dioptx/mcp-atom-of-thoughts", version: "3.0.0-dev" },
@@ -44,8 +47,12 @@ function maybeAttachViz(
   if (result.isError || !shouldRenderViz(params)) return result;
 
   try {
+    const sessionId = target.getActiveSessionId();
     const data = exportGraph(target.getAtoms(), target.getAtomOrder());
-    const html = generateVisualizationHtml(data);
+    const html = generateVisualizationHtml(data, {
+      callbackUrl: approvalServer.getCallbackUrl() ?? undefined,
+      sessionId,
+    });
     const filepath = writeVisualization(html, undefined, undefined, config.outputDir);
     openInBrowser(filepath);
 
@@ -140,10 +147,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             break;
           }
           case 'check_approval': {
-            const downloadsDir = (params.downloadsDir as string | undefined) || config.downloadsDir;
-            const sessionStartTime = params.sessionStartTime as number | undefined;
-            const approval = checkApproval(downloadsDir, sessionStartTime);
-            result = { status: 'success', command: 'check_approval', approval };
+            const sessionId = (params.sessionId as string | undefined) || target.getActiveSessionId();
+            // Primary: in-memory store from HTTP callback
+            const httpApprovals = approvalServer.getApprovals(sessionId);
+            if (httpApprovals.length > 0) {
+              const latest = httpApprovals[httpApprovals.length - 1];
+              result = { status: 'success', command: 'check_approval', source: 'http', sessionId, approval: latest };
+            } else {
+              // Fallback: file-based polling (legacy / browser POST failed path)
+              const downloadsDir = (params.downloadsDir as string | undefined) || config.downloadsDir;
+              const sessionStartTime = params.sessionStartTime as number | undefined;
+              const fileApproval = checkApproval(downloadsDir, sessionStartTime);
+              result = { status: 'success', command: 'check_approval', source: 'file', sessionId, approval: fileApproval };
+            }
             break;
           }
           case 'new_session': {
@@ -189,9 +205,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
+  const callbackInfo = await approvalServer.start();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth}`);
+  const callbackStatus = callbackInfo
+    ? `approval=http://127.0.0.1:${callbackInfo.port}`
+    : 'approval=file-fallback';
+  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0-dev | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth} ${callbackStatus}`);
 }
 
 runServer().catch((error) => {

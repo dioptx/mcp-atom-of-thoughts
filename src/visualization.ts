@@ -5,9 +5,16 @@ import { execSync } from 'node:child_process';
 import { GraphData } from './types.js';
 import { getD3Script } from './d3-bundle.js';
 
-export function generateVisualizationHtml(data: GraphData): string {
-  const dataScript = `<script>window.AOT_DATA = ${JSON.stringify(data)};</script>`;
-  let html = TEMPLATE.replace('</head>', `${dataScript}\n</head>`);
+export interface VizContext {
+  callbackUrl?: string;
+  sessionId?: string;
+}
+
+export function generateVisualizationHtml(data: GraphData, ctx: VizContext = {}): string {
+  const ctxScript = `<script>window.AOT_DATA = ${JSON.stringify(data)};` +
+    `window.AOT_CALLBACK_URL = ${JSON.stringify(ctx.callbackUrl || null)};` +
+    `window.AOT_SESSION_ID = ${JSON.stringify(ctx.sessionId || 'default')};</script>`;
+  let html = TEMPLATE.replace('</head>', `${ctxScript}\n</head>`);
   const d3Source = getD3Script();
   if (d3Source) {
     html = html.replace(/\s*<!-- D3_INLINE -->/, () => `\n    <script>${d3Source}<\/script>`);
@@ -524,7 +531,33 @@ const TEMPLATE = `<!DOCTYPE html>
             Object.entries(approvalState.nodes).forEach(function(entry) { var nodeId = entry[0]; var status = entry[1]; if (status === false) result.rejections.push({ nodeId: nodeId, node: graphData.nodes.find(function(n) { return n.id === nodeId; }), feedback: approvalState.feedback[nodeId] || 'No feedback' }); else if (status === true) result.approvedNodes.push(nodeId); });
             return result;
         }
-        function triggerApprovalDownload(result) { var blob = new Blob([JSON.stringify(result, null, 2)], {type: 'application/json'}); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'aot-approval-' + Date.now() + '.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); navigator.clipboard.writeText(JSON.stringify(result, null, 2)).catch(function() {}); }
+        function triggerApprovalDownload(result) {
+            // v3: try POST to local callback first, fall back to file download
+            var sessionId = (typeof window.AOT_SESSION_ID === 'string') ? window.AOT_SESSION_ID : 'default';
+            var callbackUrl = (typeof window.AOT_CALLBACK_URL === 'string') ? window.AOT_CALLBACK_URL : null;
+            var payload = Object.assign({}, result, { sessionId: sessionId });
+            var body = JSON.stringify(payload);
+            var didPost = false;
+            if (callbackUrl) {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', callbackUrl, false); // sync so we know if it worked
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(body);
+                    didPost = (xhr.status >= 200 && xhr.status < 300);
+                } catch (e) { didPost = false; }
+            }
+            if (!didPost) {
+                var blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'aot-approval-' + Date.now() + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+            navigator.clipboard.writeText(JSON.stringify(result, null, 2)).catch(function() {});
+        }
         function showSuccessMessage(message) { var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:3000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;'; overlay.innerHTML = '<div style="font-size:64px;">OK</div><div style="font-size:24px;font-weight:600;color:#4ade80;">' + message + '</div><div style="font-size:14px;color:#9ca3af;">You can close this window.</div>'; document.body.appendChild(overlay); }
 
         document.getElementById('approve-btn').addEventListener('click', approveAndContinue);

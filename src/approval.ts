@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { ApprovalResult } from './types.js';
 
@@ -6,7 +7,7 @@ export function checkApproval(
   downloadsDir?: string,
   sessionStartTime?: number
 ): ApprovalResult | { status: 'PENDING' } {
-  const dir = downloadsDir || process.env.AOT_DOWNLOADS_DIR || path.join(process.env.HOME || '~', 'Downloads');
+  const dir = downloadsDir || process.env.AOT_DOWNLOADS_DIR || path.join(os.homedir(), 'Downloads');
   const startTime = sessionStartTime || Date.now() - 600_000; // default: last 10 minutes
 
   let files: string[];
