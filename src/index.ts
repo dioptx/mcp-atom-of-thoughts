@@ -146,6 +146,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             result = { status: 'success', command: 'check_approval', approval };
             break;
           }
+          case 'new_session': {
+            const sessionId = params.sessionId as string | undefined;
+            const created = target.newSession(sessionId);
+            result = { status: 'success', command: 'new_session', sessionId: created, activeSessionId: target.getActiveSessionId() };
+            break;
+          }
+          case 'switch_session': {
+            const sessionId = params.sessionId as string;
+            if (!sessionId) throw new Error('sessionId is required for switch_session');
+            target.switchSession(sessionId);
+            result = { status: 'success', command: 'switch_session', activeSessionId: target.getActiveSessionId() };
+            break;
+          }
+          case 'list_sessions': {
+            const sessions = target.listSessions();
+            result = { status: 'success', command: 'list_sessions', activeSessionId: target.getActiveSessionId(), sessions };
+            break;
+          }
+          case 'reset_session': {
+            const sessionId = params.sessionId as string | undefined;
+            target.resetSession(sessionId);
+            result = { status: 'success', command: 'reset_session', sessionId: sessionId ?? target.getActiveSessionId() };
+            break;
+          }
           default:
             throw new Error(`Unknown atomcommands command: ${command}`);
         }

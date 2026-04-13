@@ -1,26 +1,129 @@
-import { AtomData, AtomType, DecompositionState, VALID_ATOM_TYPES } from './types.js';
+import {
+  AtomData,
+  AtomType,
+  DecompositionState,
+  Session,
+  SessionSummary,
+  VALID_ATOM_TYPES,
+} from './types.js';
+
+const DEFAULT_SESSION_ID = 'default';
 
 export class AtomOfThoughtsServer {
-  protected atoms: Record<string, AtomData> = {};
-  protected atomOrder: string[] = [];
-  private verifiedConclusions: string[] = [];
-  private decompositionStates: Record<string, DecompositionState> = {};
+  protected sessions: Record<string, Session> = {};
+  protected activeSessionId: string = DEFAULT_SESSION_ID;
   public maxDepth: number = 5;
-  private currentDecompositionId: string | null = null;
 
   constructor(maxDepth?: number) {
     if (maxDepth !== undefined && maxDepth > 0) {
       this.maxDepth = maxDepth;
     }
+    this.sessions[DEFAULT_SESSION_ID] = this.createSession(DEFAULT_SESSION_ID);
   }
 
-  public getAtoms(): Record<string, AtomData> {
-    return this.atoms;
+  // -------------------------------------------------------------------------
+  // Session management
+  // -------------------------------------------------------------------------
+
+  protected createSession(id: string): Session {
+    return {
+      id,
+      status: 'active',
+      createdAt: Date.now(),
+      atoms: {},
+      atomOrder: [],
+      verifiedConclusions: [],
+      decompositionStates: {},
+      currentDecompositionId: null,
+    };
   }
 
-  public getAtomOrder(): string[] {
-    return this.atomOrder;
+  protected getSession(id?: string): Session {
+    const target = id ?? this.activeSessionId;
+    const session = this.sessions[target];
+    if (!session) throw new Error(`Session not found: ${target}`);
+    return session;
   }
+
+  public getActiveSessionId(): string {
+    return this.activeSessionId;
+  }
+
+  public newSession(id?: string): string {
+    const sessionId = id && id.length > 0 ? id : this.nextDefaultSessionId();
+    if (this.sessions[sessionId]) {
+      throw new Error(`Session already exists: ${sessionId}`);
+    }
+    this.sessions[sessionId] = this.createSession(sessionId);
+    this.activeSessionId = sessionId;
+    return sessionId;
+  }
+
+  public switchSession(id: string): boolean {
+    if (!this.sessions[id]) throw new Error(`Session not found: ${id}`);
+    this.activeSessionId = id;
+    return true;
+  }
+
+  public listSessions(): SessionSummary[] {
+    return Object.values(this.sessions).map(s => ({
+      id: s.id,
+      status: s.status,
+      atomCount: Object.keys(s.atoms).length,
+      createdAt: s.createdAt,
+    }));
+  }
+
+  public resetSession(id?: string): boolean {
+    const session = this.getSession(id);
+    session.atoms = {};
+    session.atomOrder = [];
+    session.verifiedConclusions = [];
+    session.decompositionStates = {};
+    session.currentDecompositionId = null;
+    session.status = 'active';
+    return true;
+  }
+
+  protected nextDefaultSessionId(): string {
+    let n = 2;
+    while (this.sessions[`${DEFAULT_SESSION_ID}-${n}`]) n++;
+    return `${DEFAULT_SESSION_ID}-${n}`;
+  }
+
+  /**
+   * Auto-spawn a fresh session if the active session is completed and the
+   * caller is starting a new reasoning chain (no dependencies, no explicit
+   * sessionId). Keeps the single-process server usable across multiple
+   * problems without forcing the caller to manage sessions explicitly.
+   */
+  protected ensureActiveSessionForInput(input: { sessionId?: string; dependencies?: unknown[] }): void {
+    if (input.sessionId) return;
+    const active = this.sessions[this.activeSessionId];
+    if (!active || active.status !== 'completed') return;
+    const hasDeps = Array.isArray(input.dependencies) && input.dependencies.length > 0;
+    if (hasDeps) return;
+    // Auto-spawn
+    const id = this.nextDefaultSessionId();
+    this.sessions[id] = this.createSession(id);
+    this.activeSessionId = id;
+  }
+
+  // -------------------------------------------------------------------------
+  // Read-through accessors (default to active session, or accept sessionId)
+  // -------------------------------------------------------------------------
+
+  public getAtoms(sessionId?: string): Record<string, AtomData> {
+    return this.getSession(sessionId).atoms;
+  }
+
+  public getAtomOrder(sessionId?: string): string[] {
+    return this.getSession(sessionId).atomOrder;
+  }
+
+  // -------------------------------------------------------------------------
+  // Validation
+  // -------------------------------------------------------------------------
 
   public validateAtomData(input: unknown): AtomData {
     const data = input as Record<string, unknown>;
@@ -71,122 +174,129 @@ export class AtomOfThoughtsServer {
     return `[${header}] ${content} | ${confidenceBar} | ${dependenciesText}`;
   }
 
-  private validateDependencies(dependencies: string[]): boolean {
-    return dependencies.every(depId => this.atoms[depId] !== undefined);
+  private validateDependencies(session: Session, dependencies: string[]): boolean {
+    return dependencies.every(depId => session.atoms[depId] !== undefined);
   }
 
-  protected verifyAtom(atomId: string, isVerified: boolean) {
-    if (this.atoms[atomId]) {
-      this.atoms[atomId].isVerified = isVerified;
+  // -------------------------------------------------------------------------
+  // Verification, decomposition, termination — all session-scoped
+  // -------------------------------------------------------------------------
 
-      if (isVerified && this.atoms[atomId].atomType === 'conclusion') {
-        this.verifiedConclusions.push(atomId);
-      } else if (!isVerified && this.atoms[atomId].atomType === 'conclusion') {
-        this.verifiedConclusions = this.verifiedConclusions.filter(id => id !== atomId);
+  protected verifyAtom(session: Session, atomId: string, isVerified: boolean) {
+    if (session.atoms[atomId]) {
+      session.atoms[atomId].isVerified = isVerified;
+
+      if (isVerified && session.atoms[atomId].atomType === 'conclusion') {
+        session.verifiedConclusions.push(atomId);
+      } else if (!isVerified && session.atoms[atomId].atomType === 'conclusion') {
+        session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
       }
 
-      if (isVerified && this.atoms[atomId].atomType === 'verification') {
-        const verifiedHypothesisIds = this.atoms[atomId].dependencies.filter(
-          depId => this.atoms[depId] && this.atoms[depId].atomType === 'hypothesis'
+      if (isVerified && session.atoms[atomId].atomType === 'verification') {
+        const verifiedHypothesisIds = session.atoms[atomId].dependencies.filter(
+          depId => session.atoms[depId] && session.atoms[depId].atomType === 'hypothesis'
         );
 
         if (verifiedHypothesisIds.length > 0) {
           verifiedHypothesisIds.forEach(hypId => {
-            this.atoms[hypId].isVerified = true;
+            session.atoms[hypId].isVerified = true;
           });
-          this.checkForContraction(verifiedHypothesisIds);
+          this.checkForContraction(session, verifiedHypothesisIds);
         }
       }
     }
   }
 
-  public startDecomposition(atomId: string): string {
-    if (!this.atoms[atomId]) {
+  public startDecomposition(atomId: string, sessionId?: string): string {
+    const session = this.getSession(sessionId);
+    if (!session.atoms[atomId]) {
       throw new Error(`Atom with ID ${atomId} not found`);
     }
 
     const decompositionId = `decomp_${Date.now()}`;
 
-    this.decompositionStates[decompositionId] = {
+    session.decompositionStates[decompositionId] = {
       originalAtomId: atomId,
       subAtoms: [],
-      isCompleted: false
+      isCompleted: false,
     };
 
-    this.currentDecompositionId = decompositionId;
+    session.currentDecompositionId = decompositionId;
 
     return decompositionId;
   }
 
-  public addToDecomposition(decompositionId: string, atomId: string): boolean {
-    if (!this.decompositionStates[decompositionId]) {
+  public addToDecomposition(decompositionId: string, atomId: string, sessionId?: string): boolean {
+    const session = this.getSession(sessionId);
+    if (!session.decompositionStates[decompositionId]) {
       throw new Error(`Decomposition with ID ${decompositionId} not found`);
     }
 
-    if (this.decompositionStates[decompositionId].isCompleted) {
+    if (session.decompositionStates[decompositionId].isCompleted) {
       throw new Error(`Decomposition ${decompositionId} is already completed`);
     }
 
-    if (!this.atoms[atomId]) {
+    if (!session.atoms[atomId]) {
       throw new Error(`Atom with ID ${atomId} not found`);
     }
 
-    const parentDepth = this.atoms[this.decompositionStates[decompositionId].originalAtomId].depth || 0;
-    this.atoms[atomId].depth = parentDepth + 1;
+    const parentDepth = session.atoms[session.decompositionStates[decompositionId].originalAtomId].depth || 0;
+    session.atoms[atomId].depth = parentDepth + 1;
 
-    this.decompositionStates[decompositionId].subAtoms.push(atomId);
+    session.decompositionStates[decompositionId].subAtoms.push(atomId);
 
     return true;
   }
 
-  public completeDecomposition(decompositionId: string): boolean {
-    if (!this.decompositionStates[decompositionId]) {
+  public completeDecomposition(decompositionId: string, sessionId?: string): boolean {
+    const session = this.getSession(sessionId);
+    if (!session.decompositionStates[decompositionId]) {
       throw new Error(`Decomposition with ID ${decompositionId} not found`);
     }
 
-    this.decompositionStates[decompositionId].isCompleted = true;
+    session.decompositionStates[decompositionId].isCompleted = true;
 
-    if (this.currentDecompositionId === decompositionId) {
-      this.currentDecompositionId = null;
+    if (session.currentDecompositionId === decompositionId) {
+      session.currentDecompositionId = null;
     }
 
     return true;
   }
 
-  private checkForContraction(verifiedAtomIds: string[]): void {
-    for (const [decompId, state] of Object.entries(this.decompositionStates)) {
+  private checkForContraction(session: Session, verifiedAtomIds: string[]): void {
+    for (const [decompId, state] of Object.entries(session.decompositionStates)) {
       if (state.isCompleted &&
           verifiedAtomIds.some(id => state.subAtoms.includes(id)) &&
-          this.areAllSubAtomsVerified(state.subAtoms)) {
-        this.performContraction(decompId);
+          this.areAllSubAtomsVerified(session, state.subAtoms)) {
+        this.performContraction(session, decompId);
       }
     }
   }
 
-  private areAllSubAtomsVerified(atomIds: string[]): boolean {
-    return atomIds.every(id => this.atoms[id] && this.atoms[id].isVerified);
+  private areAllSubAtomsVerified(session: Session, atomIds: string[]): boolean {
+    return atomIds.every(id => session.atoms[id] && session.atoms[id].isVerified);
   }
 
-  private performContraction(decompositionId: string): void {
-    const state = this.decompositionStates[decompositionId];
+  private performContraction(session: Session, decompositionId: string): void {
+    const state = session.decompositionStates[decompositionId];
     if (!state) return;
 
-    const originalAtom = this.atoms[state.originalAtomId];
+    const originalAtom = session.atoms[state.originalAtomId];
     if (!originalAtom) return;
 
-    const subAtomConfidences = state.subAtoms.map(id => this.atoms[id]?.confidence || 0);
+    const subAtomConfidences = state.subAtoms.map(id => session.atoms[id]?.confidence || 0);
     const averageConfidence = subAtomConfidences.reduce((sum, conf) => sum + conf, 0) / subAtomConfidences.length;
 
     originalAtom.confidence = averageConfidence;
     originalAtom.isVerified = true;
 
     if (originalAtom.atomType === 'hypothesis' && originalAtom.confidence >= 0.8) {
-      this.suggestConclusion(originalAtom);
+      this.suggestConclusion(session, originalAtom);
     }
   }
 
-  protected suggestConclusion(verifiedHypothesis: AtomData): string {
-    const conclusionId = `C${Object.keys(this.atoms).filter(id => id.startsWith('C')).length + 1}`;
+  protected suggestConclusion(session: Session, verifiedHypothesis: AtomData): string {
+    const conclusionId = `C${Object.keys(session.atoms).filter(id => id.startsWith('C')).length + 1}`;
 
     const conclusionAtom: AtomData = {
       atomId: conclusionId,
@@ -199,21 +309,22 @@ export class AtomOfThoughtsServer {
       depth: verifiedHypothesis.depth,
     };
 
-    this.atoms[conclusionId] = conclusionAtom;
-    this.atomOrder.push(conclusionId);
+    session.atoms[conclusionId] = conclusionAtom;
+    session.atomOrder.push(conclusionId);
 
     return conclusionId;
   }
 
-  protected shouldTerminate(): boolean {
-    const atMaxDepth = Object.values(this.atoms).some(atom => atom.depth !== undefined && atom.depth >= this.maxDepth);
-    const hasStrongConclusion = this.verifiedConclusions.some(id => this.atoms[id] && this.atoms[id].confidence >= 0.9);
+  protected shouldTerminate(session: Session): boolean {
+    const atMaxDepth = Object.values(session.atoms).some(atom => atom.depth !== undefined && atom.depth >= this.maxDepth);
+    const hasStrongConclusion = session.verifiedConclusions.some(id => session.atoms[id] && session.atoms[id].confidence >= 0.9);
     return atMaxDepth || hasStrongConclusion;
   }
 
-  public getTerminationStatus(): { shouldTerminate: boolean; reason: string } {
-    const atMaxDepth = Object.values(this.atoms).some(atom => atom.depth !== undefined && atom.depth >= this.maxDepth);
-    const hasStrongConclusion = this.verifiedConclusions.some(id => this.atoms[id] && this.atoms[id].confidence >= 0.9);
+  public getTerminationStatus(sessionId?: string): { shouldTerminate: boolean; reason: string } {
+    const session = this.getSession(sessionId);
+    const atMaxDepth = Object.values(session.atoms).some(atom => atom.depth !== undefined && atom.depth >= this.maxDepth);
+    const hasStrongConclusion = session.verifiedConclusions.some(id => session.atoms[id] && session.atoms[id].confidence >= 0.9);
 
     if (atMaxDepth && hasStrongConclusion) {
       return { shouldTerminate: true, reason: 'Maximum depth reached and strong conclusion found' };
@@ -226,30 +337,31 @@ export class AtomOfThoughtsServer {
     }
   }
 
-  public getBestConclusion(): AtomData | null {
-    if (this.verifiedConclusions.length === 0) return null;
+  public getBestConclusion(sessionId?: string): AtomData | null {
+    const session = this.getSession(sessionId);
+    if (session.verifiedConclusions.length === 0) return null;
 
-    const sortedConclusions = [...this.verifiedConclusions]
-      .map(id => this.atoms[id])
+    const sortedConclusions = [...session.verifiedConclusions]
+      .map(id => session.atoms[id])
       .filter(atom => atom !== undefined)
       .sort((a, b) => b.confidence - a.confidence);
 
     return sortedConclusions[0] || null;
   }
 
-  private getDependentAtoms(atomId: string): string[] {
-    return Object.keys(this.atoms).filter(id =>
-      this.atoms[id].dependencies.includes(atomId)
+  private getDependentAtoms(session: Session, atomId: string): string[] {
+    return Object.keys(session.atoms).filter(id =>
+      session.atoms[id].dependencies.includes(atomId)
     );
   }
 
-  private findConflictingAtoms(atom: AtomData): string[] {
+  private findConflictingAtoms(session: Session, atom: AtomData): string[] {
     if (atom.atomType !== 'conclusion' && atom.atomType !== 'hypothesis') {
       return [];
     }
 
-    return Object.keys(this.atoms).filter(id => {
-      const otherAtom = this.atoms[id];
+    return Object.keys(session.atoms).filter(id => {
+      const otherAtom = session.atoms[id];
       return id !== atom.atomId &&
              (otherAtom.atomType === 'conclusion' || otherAtom.atomType === 'hypothesis') &&
              otherAtom.content !== atom.content &&
@@ -259,16 +371,38 @@ export class AtomOfThoughtsServer {
 
   public processAtom(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
     try {
+      const inputObj = (input || {}) as Record<string, unknown>;
+      const sessionIdRaw = inputObj.sessionId;
+      const sessionIdInput = typeof sessionIdRaw === 'string' && sessionIdRaw.length > 0 ? sessionIdRaw : undefined;
+
+      // Auto-spawn a fresh session if the active one is completed and this
+      // looks like a new reasoning chain.
+      this.ensureActiveSessionForInput({
+        sessionId: sessionIdInput,
+        dependencies: Array.isArray(inputObj.dependencies) ? inputObj.dependencies : undefined,
+      });
+
+      // Resolve target session: explicit sessionId auto-creates if unknown.
+      let session: Session;
+      if (sessionIdInput) {
+        if (!this.sessions[sessionIdInput]) {
+          this.sessions[sessionIdInput] = this.createSession(sessionIdInput);
+        }
+        session = this.sessions[sessionIdInput];
+      } else {
+        session = this.sessions[this.activeSessionId];
+      }
+
       const validatedInput = this.validateAtomData(input);
 
-      if (validatedInput.dependencies.length > 0 && !this.validateDependencies(validatedInput.dependencies)) {
-        const missing = validatedInput.dependencies.filter(depId => this.atoms[depId] === undefined);
+      if (validatedInput.dependencies.length > 0 && !this.validateDependencies(session, validatedInput.dependencies)) {
+        const missing = validatedInput.dependencies.filter(depId => session.atoms[depId] === undefined);
         throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
       }
 
       if (validatedInput.depth === undefined) {
         const depthsOfDependencies = validatedInput.dependencies
-          .map(depId => (this.atoms[depId]?.depth !== undefined ? this.atoms[depId].depth! : 0))
+          .map(depId => (session.atoms[depId]?.depth !== undefined ? session.atoms[depId].depth! : 0))
           .filter(depth => depth !== undefined);
 
         validatedInput.depth = depthsOfDependencies.length > 0
@@ -276,15 +410,15 @@ export class AtomOfThoughtsServer {
           : 0;
       }
 
-      this.atoms[validatedInput.atomId] = validatedInput;
+      session.atoms[validatedInput.atomId] = validatedInput;
 
-      if (!this.atomOrder.includes(validatedInput.atomId)) {
-        this.atomOrder.push(validatedInput.atomId);
+      if (!session.atomOrder.includes(validatedInput.atomId)) {
+        session.atomOrder.push(validatedInput.atomId);
       }
 
-      if (this.currentDecompositionId) {
+      if (session.currentDecompositionId) {
         try {
-          this.addToDecomposition(this.currentDecompositionId, validatedInput.atomId);
+          this.addToDecomposition(session.currentDecompositionId, validatedInput.atomId, session.id);
         } catch (_e: unknown) {
           // Silently ignore if cannot add to current decomposition
         }
@@ -295,21 +429,23 @@ export class AtomOfThoughtsServer {
 
       if (validatedInput.atomType === 'verification' && validatedInput.isVerified) {
         validatedInput.dependencies.forEach(depId => {
-          if (this.atoms[depId]) {
-            this.verifyAtom(depId, true);
+          if (session.atoms[depId]) {
+            this.verifyAtom(session, depId, true);
           }
         });
       }
 
-      const terminationStatus = this.getTerminationStatus();
+      const terminationStatus = this.getTerminationStatus(session.id);
       let bestConclusion = null;
 
       if (terminationStatus.shouldTerminate) {
-        bestConclusion = this.getBestConclusion();
+        bestConclusion = this.getBestConclusion(session.id);
+        // Auto-archive the session so the next zero-dep atom spawns fresh.
+        session.status = 'completed';
       }
 
-      const dependentAtoms = this.getDependentAtoms(validatedInput.atomId);
-      const conflictingAtoms = this.findConflictingAtoms(validatedInput);
+      const dependentAtoms = this.getDependentAtoms(session, validatedInput.atomId);
+      const conflictingAtoms = this.findConflictingAtoms(session, validatedInput);
 
       return {
         content: [{
@@ -320,17 +456,18 @@ export class AtomOfThoughtsServer {
             isVerified: validatedInput.isVerified,
             confidence: validatedInput.confidence,
             depth: validatedInput.depth,
-            atomsCount: Object.keys(this.atoms).length,
+            sessionId: session.id,
+            atomsCount: Object.keys(session.atoms).length,
             dependentAtoms,
             conflictingAtoms,
-            verifiedConclusions: this.verifiedConclusions,
+            verifiedConclusions: session.verifiedConclusions,
             terminationStatus,
             bestConclusion: bestConclusion ? {
               atomId: bestConclusion.atomId,
               content: bestConclusion.content,
               confidence: bestConclusion.confidence
             } : null,
-            currentDecomposition: this.currentDecompositionId
+            currentDecomposition: session.currentDecompositionId
           }, null, 2)
         }]
       };

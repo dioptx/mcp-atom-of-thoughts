@@ -11,7 +11,8 @@ const SHARED_ATOM_SCHEMA = {
     confidence: { type: "number", minimum: 0, maximum: 1, description: "Confidence 0-1 (default: 0.7)" },
     isVerified: { type: "boolean", description: "Whether this atom has been verified" },
     depth: { type: "number", description: "Depth level (auto-calculated if omitted)" },
-    viz: { type: "boolean", description: "Render and open a D3 visualization of the current graph after this atom (default: false). Set true during planning or when the user is reviewing your reasoning; leave false during execution." }
+    viz: { type: "boolean", description: "Render and open a D3 visualization of the current graph after this atom (default: false). Set true during planning or when the user is reviewing your reasoning; leave false during execution." },
+    sessionId: { type: "string", description: "Target session for this atom (default: active session). Sessions isolate atom graphs so two reasoning problems in one process don't collide. Use atomcommands new_session/switch_session to manage explicitly. Auto-spawned on next zero-dep atom after a session terminates." }
   },
   required: ["atomId", "content", "atomType"]
 };
@@ -64,7 +65,11 @@ Commands:
 - best_conclusion: Get the highest-confidence verified conclusion
 - set_max_depth: Change max depth limit (requires maxDepth)
 - export: Export the current atom graph as JSON for analysis or visualization (optional title)
-- check_approval: Poll for browser-based approval decisions (optional downloadsDir, sessionStartTime)`,
+- check_approval: Poll for browser-based approval decisions (optional downloadsDir, sessionStartTime)
+- new_session: Create and switch to a new session (optional sessionId; auto-generated if omitted)
+- switch_session: Activate an existing session (requires sessionId)
+- list_sessions: List all sessions with status and atom counts
+- reset_session: Wipe atoms in a session (defaults to active)`,
   inputSchema: {
     type: "object",
     properties: {
@@ -77,7 +82,11 @@ Commands:
           "best_conclusion",
           "set_max_depth",
           "export",
-          "check_approval"
+          "check_approval",
+          "new_session",
+          "switch_session",
+          "list_sessions",
+          "reset_session"
         ],
         description: "Command to execute"
       },
@@ -86,7 +95,8 @@ Commands:
       maxDepth: { type: "number", description: "Maximum depth (for set_max_depth)" },
       title: { type: "string", description: "Optional title (for export)" },
       downloadsDir: { type: "string", description: "Override downloads directory (for check_approval)" },
-      sessionStartTime: { type: "number", description: "Unix timestamp to ignore older approval files (for check_approval)" }
+      sessionStartTime: { type: "number", description: "Unix timestamp to ignore older approval files (for check_approval)" },
+      sessionId: { type: "string", description: "Session ID (for new_session/switch_session/reset_session, optional for new_session/reset_session)" }
     },
     required: ["command"]
   }

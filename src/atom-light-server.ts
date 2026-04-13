@@ -1,4 +1,5 @@
 import { AtomOfThoughtsServer } from './atom-server.js';
+import { Session } from './types.js';
 
 export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
   constructor(maxDepth?: number) {
@@ -7,12 +8,31 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
 
   public processAtom(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
     try {
+      const inputObj = (input || {}) as Record<string, unknown>;
+      const sessionIdRaw = inputObj.sessionId;
+      const sessionIdInput = typeof sessionIdRaw === 'string' && sessionIdRaw.length > 0 ? sessionIdRaw : undefined;
+
+      this.ensureActiveSessionForInput({
+        sessionId: sessionIdInput,
+        dependencies: Array.isArray(inputObj.dependencies) ? inputObj.dependencies : undefined,
+      });
+
+      let session: Session;
+      if (sessionIdInput) {
+        if (!this.sessions[sessionIdInput]) {
+          this.sessions[sessionIdInput] = this.createSession(sessionIdInput);
+        }
+        session = this.sessions[sessionIdInput];
+      } else {
+        session = this.sessions[this.activeSessionId];
+      }
+
       const validatedInput = this.validateAtomData(input);
 
-      this.atoms[validatedInput.atomId] = validatedInput;
+      session.atoms[validatedInput.atomId] = validatedInput;
 
-      if (!this.atomOrder.includes(validatedInput.atomId)) {
-        this.atomOrder.push(validatedInput.atomId);
+      if (!session.atomOrder.includes(validatedInput.atomId)) {
+        session.atomOrder.push(validatedInput.atomId);
       }
 
       const formattedAtom = this.formatAtom(validatedInput);
@@ -20,18 +40,26 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
 
       if (validatedInput.atomType === 'verification' && validatedInput.isVerified) {
         validatedInput.dependencies.forEach(depId => {
-          if (this.atoms[depId]) {
-            this.verifyAtom(depId, true);
+          if (session.atoms[depId]) {
+            // verifyAtom is protected on the parent and accepts a session
+            (this as unknown as { verifyAtom: (s: Session, id: string, v: boolean) => void })
+              .verifyAtom(session, depId, true);
           }
         });
       }
 
       if (validatedInput.atomType === 'hypothesis' && validatedInput.confidence >= 0.8) {
-        this.suggestConclusion(validatedInput);
+        (this as unknown as { suggestConclusion: (s: Session, atom: typeof validatedInput) => string })
+          .suggestConclusion(session, validatedInput);
       }
 
-      const shouldTerminate = this.shouldTerminate();
-      const bestConclusion = shouldTerminate ? this.getBestConclusion() : null;
+      const shouldTerminate = (this as unknown as { shouldTerminate: (s: Session) => boolean })
+        .shouldTerminate(session);
+      const bestConclusion = shouldTerminate ? this.getBestConclusion(session.id) : null;
+
+      if (shouldTerminate) {
+        session.status = 'completed';
+      }
 
       return {
         content: [{
@@ -41,7 +69,8 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
             atomType: validatedInput.atomType,
             isVerified: validatedInput.isVerified,
             confidence: validatedInput.confidence,
-            atomsCount: Object.keys(this.atoms).length,
+            sessionId: session.id,
+            atomsCount: Object.keys(session.atoms).length,
             bestConclusion: bestConclusion ? {
               atomId: bestConclusion.atomId,
               content: bestConclusion.content,

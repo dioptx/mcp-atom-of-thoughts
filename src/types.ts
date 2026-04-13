@@ -19,6 +19,26 @@ export interface DecompositionState {
   isCompleted: boolean;
 }
 
+export type SessionStatus = 'active' | 'completed';
+
+export interface Session {
+  id: string;
+  status: SessionStatus;
+  createdAt: number;
+  atoms: Record<string, AtomData>;
+  atomOrder: string[];
+  verifiedConclusions: string[];
+  decompositionStates: Record<string, DecompositionState>;
+  currentDecompositionId: string | null;
+}
+
+export interface SessionSummary {
+  id: string;
+  status: SessionStatus;
+  atomCount: number;
+  createdAt: number;
+}
+
 export interface GraphNode {
   id: string;
   type: AtomType;

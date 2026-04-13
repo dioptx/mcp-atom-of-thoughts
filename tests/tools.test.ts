@@ -82,6 +82,31 @@ describe('getAllTools', () => {
     ]));
   });
 
+  it('atomcommands enum includes session subcommands', () => {
+    const cmd = tools.find(t => t.name === 'atomcommands')!;
+    const commandProp = (cmd.inputSchema.properties as Record<string, { enum?: string[] }>).command;
+    expect(commandProp.enum).toEqual(expect.arrayContaining([
+      'new_session',
+      'switch_session',
+      'list_sessions',
+      'reset_session',
+    ]));
+  });
+
+  it('AoT-fast schema includes optional sessionId param', () => {
+    const aot = tools.find(t => t.name === 'AoT-fast')!;
+    const props = aot.inputSchema.properties as Record<string, { type: string }>;
+    expect(props.sessionId).toBeDefined();
+    expect(props.sessionId.type).toBe('string');
+    expect(aot.inputSchema.required).not.toContain('sessionId');
+  });
+
+  it('AoT-full schema includes optional sessionId param', () => {
+    const aot = tools.find(t => t.name === 'AoT-full')!;
+    const props = aot.inputSchema.properties as Record<string, { type: string }>;
+    expect(props.sessionId).toBeDefined();
+  });
+
   it('v2 tool names are removed', () => {
     const names = tools.map(t => t.name);
     expect(names).not.toContain('AoT');
