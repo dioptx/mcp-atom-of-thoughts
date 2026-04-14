@@ -2,12 +2,12 @@
 
 # Atom of Thoughts
 
-Structured reasoning for LLMs. Decompose → track confidence → visualize.
+Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 
 [![npm version](https://img.shields.io/npm/v/@dioptx/mcp-atom-of-thoughts?color=0969da)](https://www.npmjs.com/package/@dioptx/mcp-atom-of-thoughts)
 [![license](https://img.shields.io/npm/l/@dioptx/mcp-atom-of-thoughts?color=22c55e)](LICENSE)
 [![node](https://img.shields.io/node/v/@dioptx/mcp-atom-of-thoughts)](package.json)
-[![tests](https://img.shields.io/badge/tests-165%20passed-brightgreen)](#development)
+[![tests](https://img.shields.io/badge/tests-183%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
 ![Atom of Thoughts — interactive D3 visualization](assets/demo.png)
@@ -50,26 +50,42 @@ graph LR
     classDef conclusion fill:#22c55e,stroke:#4ade80,color:#fff,font-weight:bold
 ```
 
-Atoms depend on each other, carry confidence scores (0–1), and auto-terminate when a high-confidence conclusion is reached or max depth is hit.
+Chain atoms together. Each carries a confidence score (0-1). Reasoning terminates when a high-confidence conclusion is reached or max depth is hit. Sessions isolate separate problems so they don't interfere.
 
 ## Tools
 
-Three tools, decided by what you're doing:
+Three tools:
 
-| Tool | Use for |
-|------|---------|
-| `AoT-fast` | Default reasoning — depth 3, auto-suggests conclusions, fits most tasks |
-| `AoT-full` | Deep reasoning with decomposition-contraction — depth 5, sub-atoms verified independently |
-| `atomcommands` | Lifecycle and meta ops: sessions, decomposition control, export, approval polling |
+| Tool | When to reach for it |
+|------|---------------------|
+| **`AoT-fast`** | Default. Tradeoffs, debugging, decisions, option evaluation. Depth 3. |
+| **`AoT-full`** | Plans, architecture, decomposition into sub-problems. Depth 5. |
+| **`atomcommands`** | Sessions, export, approval polling, decomposition lifecycle. |
 
-Set `viz: true` on any AoT call when the user is reviewing your reasoning or you're in planning mode. The graph opens in the browser and approve/reject clicks POST back to the MCP server in-process — no filesystem polling.
+### Quick example
+
+```
+AoT-fast({atomId:"P1", content:"API returns 500 on POST /users",     atomType:"premise"})
+AoT-fast({atomId:"R1", content:"Unhandled exception in route handler", atomType:"reasoning", dependencies:["P1"]})
+AoT-fast({atomId:"C1", content:"Add try-catch in POST handler",       atomType:"conclusion", dependencies:["R1"], confidence:0.9})
+```
+
+Only `atomId`, `content`, and `atomType` are required. Everything else has defaults.
+
+### Visualization
+
+Set `viz: true` on any call to open an interactive D3 graph in the browser:
+
+```
+AoT-fast({atomId:"C1", ..., viz: true})
+```
+
+The approve/reject UI posts decisions back to the server over HTTP. No filesystem polling.
 
 ---
 
 <details>
 <summary><b>Configuration</b></summary>
-
-Pass flags via `args` to change behavior:
 
 ```json
 {
@@ -77,50 +93,47 @@ Pass flags via `args` to change behavior:
 }
 ```
 
-| Flag | Default | What it does |
-|------|---------|--------------|
-| `--mode full\|fast\|both` | `both` | Which AoT tools to register |
-| `--viz auto\|always\|never` | `auto` | `auto` renders only when call sets `viz:true`; `always` renders every call; `never` ignores the param (CI/headless) |
-| `--max-depth <n>` | 5 / 3 | Override reasoning depth limit |
-| `--output-dir <path>` | OS temp | Where to write visualization HTML |
-| `--downloads-dir <path>` | ~/Downloads | Fallback dir for approval JSON if HTTP callback can't bind |
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--mode full\|fast\|both` | `both` | Which tools to register |
+| `--viz auto\|always\|never` | `auto` | `auto` = render on `viz:true`; `always` = every call; `never` = skip (CI) |
+| `--max-depth <n>` | 5 / 3 | Override depth limit |
+| `--output-dir <path>` | OS temp | Where to write viz HTML |
+| `--downloads-dir <path>` | ~/Downloads | Approval JSON fallback |
 
 </details>
 
 <details>
 <summary><b>Sessions</b></summary>
 
-Each reasoning problem lives in its own session so atoms don't leak between problems in a long-running MCP process.
+Each reasoning chain gets its own session. Default: `"default"`.
 
-- Default session is `"default"` and is created at startup.
-- AoT calls accept an optional `sessionId` to target a specific session (auto-creates if unknown).
-- `atomcommands` exposes `new_session`, `switch_session`, `list_sessions`, `reset_session`.
-- When reasoning terminates (max depth or strong conclusion), the session is auto-archived as `completed`.
-- The next zero-dependency atom with no explicit `sessionId` auto-spawns a fresh `default-N` — so you don't have to manage sessions explicitly across problems.
+- `atomcommands new_session` creates and activates a new one.
+- `atomcommands switch_session` / `list_sessions` / `reset_session` for management.
+- When reasoning terminates, the session auto-archives. The next zero-dep atom auto-spawns `default-2`, `default-3`, etc.
+- Or pass `sessionId` on any AoT call to target explicitly.
 
-Every `processAtom` response includes `sessionId` so you always know what's being written to.
+Two problems in one MCP process stay isolated without manual session management.
 
 </details>
 
 <details>
 <summary><b>Visualization & Approval</b></summary>
 
-`viz: true` on an AoT call generates a self-contained HTML file (D3 bundled inline — works offline) and opens it in your browser. The UI shows:
+`viz: true` generates a self-contained HTML file (D3 bundled inline, works offline) and opens your browser. The UI shows:
 
-- Force-directed graph of all atoms and their dependencies
-- Color-coded nodes by type with confidence rings
-- Sidebar to approve/reject each phase or individual atom
+- Force-directed graph colored by atom type with confidence rings
+- Sidebar to approve/reject phases or individual atoms
+- Approve/reject POSTs to a local `127.0.0.1` listener (ephemeral port)
 
-When you click approve/reject, the browser POSTs the decision back to a local 127.0.0.1 listener the MCP server runs on an ephemeral port. `atomcommands` `check_approval` reads the in-memory store keyed by session — no filesystem polling, no `~/Downloads` dump.
-
-If the listener can't bind (rare — locked-down corp machine), the browser falls back to a file download in `~/Downloads` and `check_approval` falls back to scanning that dir.
+Poll results via `atomcommands check_approval`. Falls back to `~/Downloads` file scan if the HTTP listener can't bind.
 
 </details>
 
 <details>
 <summary><b>Install Methods</b></summary>
 
-**npx (recommended — zero install):**
+**npx (zero install):**
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
@@ -128,9 +141,6 @@ If the listener can't bind (rare — locked-down corp machine), the browser fall
 **npm global:**
 ```bash
 npm install -g @dioptx/mcp-atom-of-thoughts
-```
-```json
-{ "command": "mcp-atom-of-thoughts" }
 ```
 
 **Smithery:**
@@ -140,10 +150,7 @@ npx -y @smithery/cli install @dioptx/mcp-atom-of-thoughts --client claude
 
 **Docker:**
 ```bash
-docker build -t aot .
-```
-```json
-{ "command": "docker", "args": ["run", "-i", "--rm", "aot"] }
+docker build -t aot . && docker run -i --rm aot
 ```
 
 </details>
@@ -155,9 +162,22 @@ docker build -t aot .
 git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
 cd mcp-atom-of-thoughts
 npm install
-npm test        # 165 tests
+npm test        # 183 tests (unit + e2e)
 npm run build
 ```
+
+</details>
+
+<details>
+<summary><b>Migrating from v2</b></summary>
+
+See [`MIGRATION_v2_to_v3.md`](MIGRATION_v2_to_v3.md) for the full lookup table. The short version:
+
+- `AoT-light` is now `AoT-fast`
+- `AoT` is now `AoT-full`
+- `generate_visualization` is now `viz: true` on any AoT call
+- `export_graph` and `check_approval` are now `atomcommands` subcommands
+- `--no-viz` / `--no-approval` replaced by `--viz auto|always|never`
 
 </details>
 
