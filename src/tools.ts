@@ -34,9 +34,9 @@ Minimal 3-call example:
 
 Only atomId, content, and atomType are required. dependencies defaults to [], confidence defaults to 0.7.
 
-Visualization: set viz:true when the user is reviewing your reasoning or you're in a planning context. Leave viz off during execution flows. The server can override via --viz always or --viz never.
+Use AoT-full instead when you need >5 reasoning steps, multi-angle verification, or decomposition of sub-problems.
 
-Use AoT-full instead when you need >5 reasoning steps, multi-angle verification, or decomposition of sub-problems.`,
+viz param: only set viz:true when the user explicitly asks to see the graph or says "visualize". Never set it automatically.`,
   inputSchema: SHARED_ATOM_SCHEMA
 };
 
@@ -50,7 +50,7 @@ Trigger phrases: "plan", "design", "megathink", "full AoT", /aot-plan.
 
 Same atom types and parameters as AoT-fast. Drives decomposition via the atomcommands tool (decompose → sub-atoms → complete_decomposition). Reach for AoT-fast first unless you genuinely need the extra depth or decomposition.
 
-Visualization: set viz:true on your final conclusion atom (or when the user is about to review the plan) to open an interactive D3 graph. Leave off during pure execution.`,
+viz param: only set viz:true when the user explicitly asks to see the graph or says "visualize". Never set it automatically.`,
   inputSchema: SHARED_ATOM_SCHEMA
 };
 
