@@ -437,7 +437,7 @@ const TEMPLATE = `<!DOCTYPE html>
             const pnodes = nodeIds.map(id => graphData.nodes.find(n => n.id === id));
             const avgConf = pnodes.reduce((acc, n) => acc + n.confidence, 0) / pnodes.length;
             const descriptions = { premise: 'Foundational facts and constraints', reasoning: 'Logical deductions from premises', hypothesis: 'Proposed solutions being considered', verification: 'Tests and validations', conclusion: 'Final verified decisions' };
-            return { description: descriptions[type] || '', avgConfidence: avgConf, nodes: pnodes, bulletPoints: pnodes.map(n => n.content.length > 80 ? n.content.substring(0, 77) + '...' : n.content) };
+            return { description: descriptions[type] || '', avgConfidence: avgConf, nodes: pnodes, bulletPoints: pnodes.map(n => n.content) };
         }
 
         function buildApprovalSidebar() {
