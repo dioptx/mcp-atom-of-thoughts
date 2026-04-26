@@ -35,7 +35,7 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 
 **3.** Ask the model to reason something through:
 
-> *"Use AoT-light to think through whether we should use JWT or session-based auth for the API."*
+> *"Use AoT-fast to think through whether we should use JWT or session-based auth for the API."*
 
 The model decomposes the problem into atoms — premise, reasoning, hypothesis, verification, conclusion — each tagged with a confidence score. You get a structured chain you can audit, not a black-box answer.
 
