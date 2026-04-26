@@ -10,7 +10,7 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 [![tests](https://img.shields.io/badge/tests-183%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
-![Atom of Thoughts — live TUI watching reasoning unfold](assets/demo.gif)
+![Atom of Thoughts — live TUI watching reasoning unfold](assets/demo-watch.gif)
 
 </div>
 
@@ -128,7 +128,25 @@ In a second pane next to your LLM client:
 npx -y @dioptx/mcp-atom-of-thoughts tui
 ```
 
-As atoms stream in:
+### 1. Watch reasoning unfold
+
+![Watch atoms streaming in](assets/demo-watch.gif)
+
+Atoms appear as the LLM emits them — premise → reasoning → hypothesis → verification → conclusion — with live confidence bars, dependency arrows, and a velocity sparkline at the bottom. Auto-scroll keeps the newest atom selected.
+
+### 2. Give granular feedback
+
+![Accept, reject with note, submit](assets/demo-feedback.gif)
+
+`j`/`k` to move, `a` to accept, `*` to star, `r` to reject (prompts for a one-line reason), `s` to submit. The submit flash hints the next step: ask the LLM to call `atomcommands check_approval`. Submission writes the same approval-JSON shape that `check_approval`'s file-fallback path already polls for — **zero new wire protocol**.
+
+### 3. Customize the view
+
+![Settings overlay and help overlay](assets/demo-customize.gif)
+
+`t` opens settings — confidence threshold (hide low-confidence atoms), theme (vibrant/soft/mono), compact mode, dependency arrows. `?` shows the full keymap.
+
+### Keys reference
 
 | Key | Action |
 |-----|--------|
@@ -142,8 +160,6 @@ As atoms stream in:
 | `?` | Keys help |
 | `space` | Pause / resume event stream |
 | `q` | Quit |
-
-**The feedback loop:** submission writes the same approval-JSON shape that `atomcommands check_approval` already polls for (file fallback path; the v3 HTTP-callback path is independent). After pressing `s`, **prompt your LLM to call `atomcommands check_approval`** — it returns `NEEDS_REVISION` with your rejection notes (or `APPROVED`), and the model adjusts. Zero new wire protocol; the existing approval contract is reused.
 
 > [!TIP]
 > Skip setup, see it in action: `npx -y @dioptx/mcp-atom-of-thoughts tui --demo`

@@ -256,7 +256,7 @@ function setupKeys(onKey: (key: string) => void): void {
   process.stdin.on('data', (key) => onKey(typeof key === 'string' ? key : key.toString()));
 }
 
-async function runDemo(feedbackDir: string): Promise<void> {
+async function runDemo(feedbackDir: string, opts: { instant?: boolean } = {}): Promise<void> {
   const state = emptyState(feedbackDir);
   const eventsPath = '<demo>';
   let quit = false;
@@ -274,14 +274,22 @@ async function runDemo(feedbackDir: string): Promise<void> {
     render(state, eventsPath);
   });
 
-  for (const ev of DEMO_EVENTS) {
-    if (quit) break;
-    applyEvent(state, ev);
+  if (opts.instant) {
+    // Populate the entire tree synchronously so the recording can focus on
+    // user interaction (feedback / settings / help) without a 7s warm-up.
+    for (const ev of DEMO_EVENTS) applyEvent(state, ev);
     render(state, eventsPath);
-    await new Promise(r => setTimeout(r, DEMO_DELAY_MS[ev.kind] ?? 500));
+  } else {
+    for (const ev of DEMO_EVENTS) {
+      if (quit) break;
+      applyEvent(state, ev);
+      render(state, eventsPath);
+      await new Promise(r => setTimeout(r, DEMO_DELAY_MS[ev.kind] ?? 500));
+    }
   }
-  // hold final frame so the user / GIF has time to read it
-  for (let i = 0; i < 200 && !quit; i++) {
+
+  // Hold so the recording (or human viewer) has time to read / interact.
+  for (let i = 0; i < 300 && !quit; i++) {
     await new Promise(r => setTimeout(r, 100));
     render(state, eventsPath);
   }
@@ -344,15 +352,17 @@ function runWatch(eventsPath: string, feedbackDir: string): void {
 export function main(argv: string[]): void {
   const args = argv.slice(3); // skip node, script, 'tui'
   let demo = false;
+  let demoInstant = false;
   let watchPath: string | null = null;
   let feedbackDir = path.join(os.homedir(), 'Downloads');
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--demo') demo = true;
+    else if (args[i] === '--demo-instant') { demo = true; demoInstant = true; }
     else if (args[i] === '--watch') watchPath = args[++i] ?? null;
     else if (args[i] === '--feedback-dir') feedbackDir = args[++i] ?? feedbackDir;
   }
 
-  if (demo) { runDemo(feedbackDir); return; }
+  if (demo) { runDemo(feedbackDir, { instant: demoInstant }); return; }
   const resolved = watchPath ?? defaultEventsPath(path.join(os.tmpdir(), 'aot-diagrams'));
   runWatch(resolved, feedbackDir);
 }
