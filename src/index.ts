@@ -10,8 +10,23 @@ import { checkApproval } from './approval.js';
 import { ApprovalCallbackServer } from './approval-server.js';
 import { getTools } from './tools.js';
 import { parseArgs } from './config.js';
+import { EventLog, defaultEventsPath } from './events.js';
+import { main as runTui } from './tui.js';
+
+// Subcommand routing: `mcp-atom-of-thoughts tui [...]` runs the live TUI.
+if (process.argv[2] === 'tui') {
+  runTui(process.argv);
+  // runTui takes over the process; nothing else to do.
+} else {
 
 const config = parseArgs(process.argv);
+const eventLog = config.eventsEnabled
+  ? new EventLog(config.eventsPath ?? defaultEventsPath(config.outputDir), true)
+  : null;
+
+if (eventLog) {
+  eventLog.emit({ kind: 'session_start', t: Date.now(), mode: config.mode, maxDepth: config.maxDepth });
+}
 
 const approvalServer = new ApprovalCallbackServer();
 
@@ -21,7 +36,7 @@ const server = new Server(
 );
 
 const atomServer = (config.mode === 'full' || config.mode === 'both')
-  ? new AtomOfThoughtsServer(config.maxDepth)
+  ? new AtomOfThoughtsServer(config.maxDepth, eventLog ?? undefined)
   : null;
 
 const atomLightServer = (config.mode === 'fast' || config.mode === 'both')
@@ -214,10 +229,14 @@ async function runServer() {
   const callbackStatus = callbackInfo
     ? `approval=http://127.0.0.1:${callbackInfo.port}`
     : 'approval=file-fallback';
-  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0 | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth} ${callbackStatus}`);
+  const eventsBanner = eventLog ? ` events=${eventLog.getPath()}` : '';
+  console.error(`@dioptx/mcp-atom-of-thoughts v3.0.0 | mode=${config.mode} viz=${config.vizMode} maxDepth=${config.maxDepth} ${callbackStatus}${eventsBanner}`);
 }
 
 runServer().catch((error) => {
   console.error("Fatal error running server:", error);
   process.exit(1);
 });
+
+} // end MCP-server branch
+

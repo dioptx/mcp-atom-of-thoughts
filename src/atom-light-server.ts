@@ -1,5 +1,6 @@
 import { AtomOfThoughtsServer } from './atom-server.js';
 import { Session } from './types.js';
+import { EventLog } from './events.js';
 
 export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
   constructor(maxDepth?: number, shareStateWith?: AtomOfThoughtsServer) {
@@ -8,9 +9,16 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       // Share the sessions map (object reference) so writes to one instance
       // are visible to the other. activeSessionId is a primitive so we proxy
       // reads/writes via Object.defineProperty pointing at the shared instance.
-      const shared = shareStateWith as unknown as { sessions: Record<string, Session>; activeSessionId: string };
-      const self = this as unknown as { sessions: Record<string, Session> };
+      const shared = shareStateWith as unknown as {
+        sessions: Record<string, Session>;
+        activeSessionId: string;
+        events: EventLog | null;
+      };
+      const self = this as unknown as { sessions: Record<string, Session>; events: EventLog | null };
       self.sessions = shared.sessions;
+      // Inherit the parent's event log so light-mode atom emissions land in
+      // the same JSONL feed the TUI is tailing.
+      self.events = shared.events;
       Object.defineProperty(this, 'activeSessionId', {
         configurable: true,
         get(): string { return shared.activeSessionId; },
@@ -47,6 +55,7 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       if (!session.atomOrder.includes(validatedInput.atomId)) {
         session.atomOrder.push(validatedInput.atomId);
       }
+      this.events?.emit({ kind: 'atom_added', t: Date.now(), atom: validatedInput, sessionId: session.id });
 
       const formattedAtom = this.formatAtom(validatedInput);
       console.error(formattedAtom);
@@ -72,6 +81,7 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
 
       if (shouldTerminate) {
         session.status = 'completed';
+        this.events?.emit({ kind: 'termination', t: Date.now(), reason: 'Strong conclusion or max depth', sessionId: session.id });
       }
 
       const payload: Record<string, unknown> = {

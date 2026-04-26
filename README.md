@@ -10,15 +10,15 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 [![tests](https://img.shields.io/badge/tests-183%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
-![Atom of Thoughts — interactive D3 visualization](assets/demo.png)
+![Atom of Thoughts — live TUI watching reasoning unfold](assets/demo.gif)
 
 </div>
 
 ---
 
-## Setup
+## Quickstart
 
-Add to your MCP config:
+**1.** Add to your MCP config:
 
 ```json
 {
@@ -31,8 +31,44 @@ Add to your MCP config:
 }
 ```
 
+**2.** Restart your client.
+
+**3.** Ask the model to reason something through:
+
+> *"Use AoT-light to think through whether we should use JWT or session-based auth for the API."*
+
+The model decomposes the problem into atoms — premise, reasoning, hypothesis, verification, conclusion — each tagged with a confidence score. You get a structured chain you can audit, not a black-box answer.
+
 > [!TIP]
-> Works with Claude Code, Cursor, Windsurf, or any MCP client.
+> Works with Claude Code, Cursor, Windsurf, or any MCP-aware client.
+
+## Install
+
+**npx** *(recommended — zero install, always latest)*
+```json
+{ "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
+```
+
+**npm global**
+```bash
+npm install -g @dioptx/mcp-atom-of-thoughts
+```
+```json
+{ "command": "mcp-atom-of-thoughts" }
+```
+
+**Smithery**
+```bash
+npx -y @smithery/cli install @dioptx/mcp-atom-of-thoughts --client claude
+```
+
+**Docker**
+```bash
+docker build -t aot .
+```
+```json
+{ "command": "docker", "args": ["run", "-i", "--rm", "aot"] }
+```
 
 ## How it works
 
@@ -82,6 +118,36 @@ AoT-fast({atomId:"C1", ..., viz: true})
 
 The approve/reject UI posts decisions back to the server over HTTP. No filesystem polling.
 
+## Live TUI
+
+Watch reasoning unfold in a second terminal while the LLM works — and feed approve/reject decisions back into the next tool call. The event feed is on by default; nothing extra to configure.
+
+In a second pane next to your LLM client:
+
+```bash
+npx -y @dioptx/mcp-atom-of-thoughts tui
+```
+
+As atoms stream in:
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Move selection |
+| `a` | Accept the selected atom |
+| `r` | Reject (prompts for a one-line reason) |
+| `u` | Clear feedback on the selected atom |
+| `*` | Star as critical context |
+| `s` | **Submit** verdict — writes `aot-approval-*.json` |
+| `t` | Settings (threshold, theme, compact mode, deps) |
+| `?` | Keys help |
+| `space` | Pause / resume event stream |
+| `q` | Quit |
+
+**The feedback loop:** submission writes the same approval-JSON shape that `atomcommands check_approval` already polls for (file fallback path; the v3 HTTP-callback path is independent). After pressing `s`, **prompt your LLM to call `atomcommands check_approval`** — it returns `NEEDS_REVISION` with your rejection notes (or `APPROVED`), and the model adjusts. Zero new wire protocol; the existing approval contract is reused.
+
+> [!TIP]
+> Skip setup, see it in action: `npx -y @dioptx/mcp-atom-of-thoughts tui --demo`
+
 ---
 
 <details>
@@ -118,15 +184,15 @@ Two problems in one MCP process stay isolated without manual session management.
 </details>
 
 <details>
-<summary><b>Visualization & Approval</b></summary>
+<summary><b>Browser visualization (alternative to the TUI)</b></summary>
 
-`viz: true` generates a self-contained HTML file (D3 bundled inline, works offline) and opens your browser. The UI shows:
+If you'd rather see the graph in a browser tab than a terminal pane, set `viz: true` on any AoT call. It generates a self-contained HTML file (D3 bundled inline, works offline) and opens your browser:
 
 - Force-directed graph colored by atom type with confidence rings
 - Sidebar to approve/reject phases or individual atoms
-- Approve/reject POSTs to a local `127.0.0.1` listener (ephemeral port)
+- Approve/reject POSTs to a local `127.0.0.1` listener (ephemeral port); falls back to `~/Downloads` file scan if the listener can't bind
 
-Poll results via `atomcommands check_approval`. Falls back to `~/Downloads` file scan if the HTTP listener can't bind.
+The TUI and the browser viz both feed `atomcommands check_approval` — pick whichever fits your workflow.
 
 </details>
 

@@ -10,6 +10,10 @@ export interface ServerConfig {
   maxDepth: number;
   outputDir: string;
   downloadsDir: string;
+  // Live-TUI event feed: append-only JSONL in tmpdir, ~50 bytes per atom.
+  // On by default; disable with --no-tui-events.
+  eventsEnabled: boolean;
+  eventsPath?: string;
 }
 
 const VALID_MODES: ServerMode[] = ['full', 'fast', 'both'];
@@ -23,6 +27,8 @@ export function parseArgs(argv: string[]): ServerConfig {
   let maxDepthOverride: number | undefined;
   let outputDir: string | undefined;
   let downloadsDir: string | undefined;
+  let eventsEnabled = true;
+  let eventsPath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -65,6 +71,17 @@ export function parseArgs(argv: string[]): ServerConfig {
           throw new Error('--downloads-dir requires a path argument');
         }
         break;
+      case '--tui-events':
+        eventsEnabled = true;
+        break;
+      case '--no-tui-events':
+        eventsEnabled = false;
+        break;
+      case '--events-path':
+        eventsPath = args[++i];
+        if (!eventsPath) throw new Error('--events-path requires a path argument');
+        eventsEnabled = true;
+        break;
       default:
         break;
     }
@@ -78,5 +95,7 @@ export function parseArgs(argv: string[]): ServerConfig {
     maxDepth: maxDepthOverride ?? defaultMaxDepth,
     outputDir: outputDir ?? path.join(os.tmpdir(), 'aot-diagrams'),
     downloadsDir: downloadsDir ?? path.join(os.homedir(), 'Downloads'),
+    eventsEnabled,
+    eventsPath,
   };
 }

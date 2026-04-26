@@ -6,6 +6,7 @@ import {
   SessionSummary,
   VALID_ATOM_TYPES,
 } from './types.js';
+import { EventLog } from './events.js';
 
 const DEFAULT_SESSION_ID = 'default';
 
@@ -13,11 +14,14 @@ export class AtomOfThoughtsServer {
   protected sessions: Record<string, Session> = {};
   protected activeSessionId: string = DEFAULT_SESSION_ID;
   public maxDepth: number = 5;
+  // Live-TUI event log. Pure side-effect — never affects reasoning logic.
+  protected events: EventLog | null = null;
 
-  constructor(maxDepth?: number) {
+  constructor(maxDepth?: number, events?: EventLog) {
     if (maxDepth !== undefined && maxDepth > 0) {
       this.maxDepth = maxDepth;
     }
+    this.events = events ?? null;
     this.sessions[DEFAULT_SESSION_ID] = this.createSession(DEFAULT_SESSION_ID);
   }
 
@@ -185,6 +189,9 @@ export class AtomOfThoughtsServer {
   protected verifyAtom(session: Session, atomId: string, isVerified: boolean) {
     if (session.atoms[atomId]) {
       session.atoms[atomId].isVerified = isVerified;
+      if (isVerified) {
+        this.events?.emit({ kind: 'atom_verified', t: Date.now(), atomId, confidence: session.atoms[atomId].confidence, sessionId: session.id });
+      }
 
       if (isVerified && session.atoms[atomId].atomType === 'conclusion') {
         session.verifiedConclusions.push(atomId);
@@ -222,6 +229,7 @@ export class AtomOfThoughtsServer {
     };
 
     session.currentDecompositionId = decompositionId;
+    this.events?.emit({ kind: 'decomposition_started', t: Date.now(), decompositionId, atomId, sessionId: session.id });
 
     return decompositionId;
   }
@@ -260,6 +268,7 @@ export class AtomOfThoughtsServer {
       session.currentDecompositionId = null;
     }
 
+    this.events?.emit({ kind: 'decomposition_completed', t: Date.now(), decompositionId, sessionId: session.id });
     return true;
   }
 
@@ -311,6 +320,8 @@ export class AtomOfThoughtsServer {
 
     session.atoms[conclusionId] = conclusionAtom;
     session.atomOrder.push(conclusionId);
+    this.events?.emit({ kind: 'atom_added', t: Date.now(), atom: conclusionAtom, sessionId: session.id });
+    this.events?.emit({ kind: 'conclusion_suggested', t: Date.now(), atomId: conclusionId, fromHypothesis: verifiedHypothesis.atomId, confidence: conclusionAtom.confidence, sessionId: session.id });
 
     return conclusionId;
   }
@@ -415,6 +426,7 @@ export class AtomOfThoughtsServer {
       if (!session.atomOrder.includes(validatedInput.atomId)) {
         session.atomOrder.push(validatedInput.atomId);
       }
+      this.events?.emit({ kind: 'atom_added', t: Date.now(), atom: validatedInput, sessionId: session.id });
 
       if (session.currentDecompositionId) {
         try {
@@ -442,6 +454,7 @@ export class AtomOfThoughtsServer {
         bestConclusion = this.getBestConclusion(session.id);
         // Auto-archive the session so the next zero-dep atom spawns fresh.
         session.status = 'completed';
+        this.events?.emit({ kind: 'termination', t: Date.now(), reason: terminationStatus.reason, sessionId: session.id });
       }
 
       const dependentAtoms = this.getDependentAtoms(session, validatedInput.atomId);
