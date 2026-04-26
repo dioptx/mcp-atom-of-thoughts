@@ -10,7 +10,7 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 [![tests](https://img.shields.io/badge/tests-183%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
-![Atom of Thoughts — live TUI watching reasoning unfold](assets/demo-watch.gif)
+![Atom of Thoughts: live TUI watching reasoning unfold](assets/demo-watch.gif)
 
 </div>
 
@@ -37,14 +37,14 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 
 > *"Use AoT-fast to think through whether we should use JWT or session-based auth for the API."*
 
-The model decomposes the problem into atoms — premise, reasoning, hypothesis, verification, conclusion — each tagged with a confidence score. You get a structured chain you can audit, not a black-box answer.
+The model breaks the problem into five kinds of atoms (premise, reasoning, hypothesis, verification, conclusion), each tagged with a confidence score. You get a structured chain you can audit, not a black-box answer.
 
 > [!TIP]
 > Works with Claude Code, Cursor, Windsurf, or any MCP-aware client.
 
 ## Install
 
-**npx** *(recommended — zero install, always latest)*
+**npx** *(recommended; zero install, always latest)*
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
@@ -86,11 +86,11 @@ graph LR
     classDef conclusion fill:#22c55e,stroke:#4ade80,color:#fff,font-weight:bold
 ```
 
-Chain atoms together. Each carries a confidence score (0-1). Reasoning terminates when a high-confidence conclusion is reached or max depth is hit. Sessions isolate separate problems so they don't interfere.
+Atoms chain through dependencies. Each carries a confidence score from 0 to 1. Reasoning terminates when a high-confidence conclusion lands or max depth is hit. Each problem runs in its own session, so two threads of thought never bleed into each other.
 
 ## Tools
 
-Three tools:
+Three tools cover the full surface:
 
 | Tool | When to reach for it |
 |------|---------------------|
@@ -106,21 +106,21 @@ AoT-fast({atomId:"R1", content:"Unhandled exception in route handler", atomType:
 AoT-fast({atomId:"C1", content:"Add try-catch in POST handler",       atomType:"conclusion", dependencies:["R1"], confidence:0.9})
 ```
 
-Only `atomId`, `content`, and `atomType` are required. Everything else has defaults.
+Only `atomId`, `content`, and `atomType` are required. Everything else has sensible defaults.
 
 ### Visualization
 
-Set `viz: true` on any call to open an interactive D3 graph in the browser:
+Pass `viz: true` on any call to open an interactive D3 graph in the browser:
 
 ```
 AoT-fast({atomId:"C1", ..., viz: true})
 ```
 
-The approve/reject UI posts decisions back to the server over HTTP. No filesystem polling.
+Approve and reject decisions POST back to the server over HTTP. No filesystem polling.
 
 ## Live TUI
 
-Watch reasoning unfold in a second terminal while the LLM works — and feed approve/reject decisions back into the next tool call. The event feed is on by default; nothing extra to configure.
+Watch the model reason in a second terminal pane while it works, and feed approve/reject decisions back into the next tool call. The event feed is on by default; nothing extra to configure.
 
 In a second pane next to your LLM client:
 
@@ -132,19 +132,19 @@ npx -y @dioptx/mcp-atom-of-thoughts tui
 
 ![Watch atoms streaming in](assets/demo-watch.gif)
 
-Atoms appear as the LLM emits them — premise → reasoning → hypothesis → verification → conclusion — with live confidence bars, dependency arrows, and a velocity sparkline at the bottom. Auto-scroll keeps the newest atom selected.
+Atoms appear as the model emits them, walking the chain premise → reasoning → hypothesis → verification → conclusion. Confidence bars fill in real time, dependencies show as inline arrows, and a velocity sparkline tracks event rate. Auto-scroll keeps the newest atom selected.
 
 ### 2. Give granular feedback
 
 ![Accept, reject with note, submit](assets/demo-feedback.gif)
 
-`j`/`k` to move, `a` to accept, `*` to star, `r` to reject (prompts for a one-line reason), `s` to submit. The submit flash hints the next step: ask the LLM to call `atomcommands check_approval`. Submission writes the same approval-JSON shape that `check_approval`'s file-fallback path already polls for — **zero new wire protocol**.
+`j` / `k` move the selection. `a` accepts an atom; `*` stars it as critical context; `r` rejects it and prompts for a one-line reason. `s` submits the verdict. The submit flash tells you exactly what to do next: ask the model to call `atomcommands check_approval`. The verdict is written as the same approval JSON the existing file-fallback path already polls for, so feedback flows back through a contract the server already understands. **Zero new wire protocol.**
 
 ### 3. Customize the view
 
 ![Settings overlay and help overlay](assets/demo-customize.gif)
 
-`t` opens settings — confidence threshold (hide low-confidence atoms), theme (vibrant/soft/mono), compact mode, dependency arrows. `?` shows the full keymap.
+`t` opens settings: confidence threshold to hide low-confidence atoms, color theme (vibrant, soft, or mono), compact mode, dependency arrows toggle. `?` shows the full keymap.
 
 ### Keys reference
 
@@ -155,14 +155,14 @@ Atoms appear as the LLM emits them — premise → reasoning → hypothesis → 
 | `r` | Reject (prompts for a one-line reason) |
 | `u` | Clear feedback on the selected atom |
 | `*` | Star as critical context |
-| `s` | **Submit** verdict — writes `aot-approval-*.json` |
+| `s` | Submit verdict (writes `aot-approval-*.json`) |
 | `t` | Settings (threshold, theme, compact mode, deps) |
 | `?` | Keys help |
 | `space` | Pause / resume event stream |
 | `q` | Quit |
 
 > [!TIP]
-> Skip setup, see it in action: `npx -y @dioptx/mcp-atom-of-thoughts tui --demo`
+> Skip setup and see it in action: `npx -y @dioptx/mcp-atom-of-thoughts tui --demo`
 
 ---
 
@@ -178,7 +178,7 @@ Atoms appear as the LLM emits them — premise → reasoning → hypothesis → 
 | Flag | Default | Effect |
 |------|---------|--------|
 | `--mode full\|fast\|both` | `both` | Which tools to register |
-| `--viz auto\|always\|never` | `auto` | `auto` = render on `viz:true`; `always` = every call; `never` = skip (CI) |
+| `--viz auto\|always\|never` | `auto` | `auto`: render on `viz:true`. `always`: render every call. `never`: skip (CI) |
 | `--max-depth <n>` | 5 / 3 | Override depth limit |
 | `--output-dir <path>` | OS temp | Where to write viz HTML |
 | `--downloads-dir <path>` | ~/Downloads | Approval JSON fallback |
@@ -188,12 +188,12 @@ Atoms appear as the LLM emits them — premise → reasoning → hypothesis → 
 <details>
 <summary><b>Sessions</b></summary>
 
-Each reasoning chain gets its own session. Default: `"default"`.
+Each reasoning chain gets its own session. Default ID: `"default"`.
 
 - `atomcommands new_session` creates and activates a new one.
 - `atomcommands switch_session` / `list_sessions` / `reset_session` for management.
-- When reasoning terminates, the session auto-archives. The next zero-dep atom auto-spawns `default-2`, `default-3`, etc.
-- Or pass `sessionId` on any AoT call to target explicitly.
+- When reasoning terminates, the session auto-archives. The next zero-dependency atom auto-spawns `default-2`, `default-3`, and so on.
+- Or pass `sessionId` on any AoT call to target one explicitly.
 
 Two problems in one MCP process stay isolated without manual session management.
 
@@ -202,35 +202,35 @@ Two problems in one MCP process stay isolated without manual session management.
 <details>
 <summary><b>Browser visualization (alternative to the TUI)</b></summary>
 
-If you'd rather see the graph in a browser tab than a terminal pane, set `viz: true` on any AoT call. It generates a self-contained HTML file (D3 bundled inline, works offline) and opens your browser:
+Prefer a browser tab to a terminal pane? Pass `viz: true` on any AoT call. The server writes a self-contained HTML file (D3 inlined, works offline) and opens it:
 
 - Force-directed graph colored by atom type with confidence rings
-- Sidebar to approve/reject phases or individual atoms
-- Approve/reject POSTs to a local `127.0.0.1` listener (ephemeral port); falls back to `~/Downloads` file scan if the listener can't bind
+- Sidebar to approve or reject phases or individual atoms
+- Approve / reject POSTs to a local `127.0.0.1` listener on an ephemeral port; falls back to a `~/Downloads` file scan if the listener can't bind
 
-The TUI and the browser viz both feed `atomcommands check_approval` — pick whichever fits your workflow.
+The TUI and the browser viz both feed `atomcommands check_approval`. Pick whichever fits your workflow.
 
 </details>
 
 <details>
-<summary><b>Install Methods</b></summary>
+<summary><b>Install methods</b></summary>
 
-**npx (zero install):**
+**npx** (zero install):
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
 
-**npm global:**
+**npm global**:
 ```bash
 npm install -g @dioptx/mcp-atom-of-thoughts
 ```
 
-**Smithery:**
+**Smithery**:
 ```bash
 npx -y @smithery/cli install @dioptx/mcp-atom-of-thoughts --client claude
 ```
 
-**Docker:**
+**Docker**:
 ```bash
 docker build -t aot . && docker run -i --rm aot
 ```
@@ -259,10 +259,10 @@ See [`MIGRATION_v2_to_v3.md`](MIGRATION_v2_to_v3.md) for the full lookup table. 
 - `AoT` is now `AoT-full`
 - `generate_visualization` is now `viz: true` on any AoT call
 - `export_graph` and `check_approval` are now `atomcommands` subcommands
-- `--no-viz` / `--no-approval` replaced by `--viz auto|always|never`
+- `--no-viz` and `--no-approval` are replaced by `--viz auto|always|never`
 
 </details>
 
 ---
 
-MIT · Based on [Atom of Thoughts](https://arxiv.org/abs/2502.12018)
+MIT. Based on [Atom of Thoughts](https://arxiv.org/abs/2502.12018).
