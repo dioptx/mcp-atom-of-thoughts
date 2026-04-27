@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- `examples/` directory with two alternative HTML viewers for atom-graph exports
+  and a synthetic `example-trace.json` demonstrating the V-kills-H pattern.
+  - `render-review.mjs` — small graph in a left rail + stage-by-stage atom
+    content; verifications stage in focus.
+  - `render-focus.mjs` — verifications and conclusion only, full-bleed.
+  - Both consume the unchanged output of `atomcommands export` and additionally
+    honor optional `kills` / `confirms` fields on verification atoms to
+    highlight which hypotheses each verification eliminates or supports. The
+    default D3 viewer ignores these fields, so adding them is non-breaking.
+
 ## [3.0.0] — 2026-04-13
 
 Major UX refactor. Tool surface collapsed to 3, sessions added,

@@ -1,0 +1,91 @@
+{
+  "title": "Serverless function → Postgres connection strategy — V kills H2",
+  "nodes": [
+    {
+      "id": "P1",
+      "type": "premise",
+      "content": "A serverless function (Lambda / Workers / Cloud Functions) needs to query Postgres on each invocation. Pick a connection strategy.",
+      "confidence": 0.95,
+      "depth": 0
+    },
+    {
+      "id": "P2",
+      "type": "premise",
+      "content": "Traffic is bursty: 0 to 500 concurrent invocations within a few seconds. Average function runtime is around 100ms. Connection setup over TLS is 50-200ms.",
+      "confidence": 0.92,
+      "depth": 0
+    },
+    {
+      "id": "R1",
+      "type": "reasoning",
+      "content": "Postgres has a hard connection ceiling (default around 100). Every invocation needs a connection. Connection churn at burst is the failure mode to design for.",
+      "confidence": 0.88,
+      "depth": 1
+    },
+    {
+      "id": "R2",
+      "type": "reasoning",
+      "content": "Operational complexity matters. Adding a new component to the path (a proxy) introduces failure modes, observability surface, and another thing to upgrade.",
+      "confidence": 0.85,
+      "depth": 1
+    },
+    {
+      "id": "H1",
+      "type": "hypothesis",
+      "content": "Open a fresh connection per invocation. Simplest possible. Pays the 50-200ms TLS handshake every time.",
+      "confidence": 0.7,
+      "depth": 2
+    },
+    {
+      "id": "H2",
+      "type": "hypothesis",
+      "content": "Maintain a connection pool inside the function's container. Reuse connections across warm invocations of the same instance.",
+      "confidence": 0.7,
+      "depth": 2
+    },
+    {
+      "id": "H3",
+      "type": "hypothesis",
+      "content": "Put a connection proxy (RDS Proxy / PgBouncer) in front of Postgres. Functions talk to the proxy; the proxy multiplexes onto a small number of actual Postgres connections.",
+      "confidence": 0.7,
+      "depth": 2
+    },
+    {
+      "id": "V1",
+      "type": "verification",
+      "content": "H2 silently fails at burst. Each cold-start container gets its own pool, so 500 concurrent invocations create 500 separate pools — each holding N connections. That is exactly the pattern the pool was meant to prevent. Looks fine in dev; breaks at scale.",
+      "confidence": 0.93,
+      "depth": 3,
+      "kills": ["H2"]
+    },
+    {
+      "id": "V2",
+      "type": "verification",
+      "content": "H3 trades one operational component for predictable connection multiplexing. The proxy is the standard answer for this exact scaling shape, and the failure modes (proxy down, proxy lag) are well-understood.",
+      "confidence": 0.88,
+      "depth": 3,
+      "confirms": ["H3"]
+    },
+    {
+      "id": "C1",
+      "type": "conclusion",
+      "content": "H3 (connection proxy). H1 is acceptable for low-throughput functions but adds tail latency. H2 is the trap — feels right, fails on the burst case it's supposedly designed for. The smart-sounding option silently fails on its target case.",
+      "confidence": 0.87,
+      "depth": 4
+    }
+  ],
+  "links": [
+    {"source": "P1", "target": "R1"},
+    {"source": "P2", "target": "R1"},
+    {"source": "P1", "target": "R2"},
+    {"source": "R1", "target": "H1"},
+    {"source": "R1", "target": "H2"},
+    {"source": "R2", "target": "H2"},
+    {"source": "R1", "target": "H3"},
+    {"source": "R2", "target": "H3"},
+    {"source": "H2", "target": "V1"},
+    {"source": "H3", "target": "V2"},
+    {"source": "V1", "target": "C1"},
+    {"source": "V2", "target": "C1"}
+  ]
+}
