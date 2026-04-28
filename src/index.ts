@@ -24,11 +24,9 @@ const eventLog = config.eventsEnabled
   ? new EventLog(config.eventsPath ?? defaultEventsPath(config.outputDir), true)
   : null;
 
-if (eventLog) {
-  eventLog.emit({ kind: 'session_start', t: Date.now(), mode: config.mode, maxDepth: config.maxDepth });
-}
-
 const approvalServer = new ApprovalCallbackServer();
+// session_start is emitted from runServer() after the callback server has
+// bound, so the URL can be included in the event for the TUI to discover.
 
 const server = new Server(
   { name: "@dioptx/mcp-atom-of-thoughts", version: "3.0.0" },
@@ -224,6 +222,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 async function runServer() {
   const callbackInfo = await approvalServer.start();
+  if (eventLog) {
+    eventLog.emit({
+      kind: 'session_start',
+      t: Date.now(),
+      mode: config.mode,
+      maxDepth: config.maxDepth,
+      callbackUrl: callbackInfo?.url,
+    });
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
   const callbackStatus = callbackInfo

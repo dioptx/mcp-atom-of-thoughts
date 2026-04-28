@@ -46,6 +46,8 @@ function applyEvent(state: TuiState, ev: AotEvent): void {
       state.maxDepth = ev.maxDepth;
       state.decompositions.clear();
       state.selectedIdx = 0;
+      if (ev.sessionId) state.sessionId = ev.sessionId;
+      if (ev.callbackUrl) state.callbackUrl = ev.callbackUrl;
       break;
     case 'atom_added':
       state.atoms[ev.atom.atomId] = { ...ev.atom };
@@ -178,10 +180,20 @@ function handleMainKey(state: TuiState, key: string, eventsPath: string): boolea
     return false;
   }
   if (key === 's') {
-    const result = submitFeedback(state);
-    flash(state, `verdict ${result.status} written — ask the LLM to check_approval`, 4500);
+    flash(state, 'submitting verdict...', 4000);
     state.uiMode = 'submitted';
-    setTimeout(() => { if (state.uiMode === 'submitted') state.uiMode = 'main'; render(state, eventsPath); }, 1200);
+    submitFeedback(state).then((result) => {
+      const where = result.source === 'http'
+        ? 'callback POST'
+        : `file ${path.basename(result.filepath ?? '')}`;
+      flash(state, `verdict ${result.status} via ${where}, ask the LLM to check_approval`, 5000);
+      if (state.uiMode === 'submitted') state.uiMode = 'main';
+      render(state, eventsPath);
+    }).catch((err) => {
+      flash(state, `submit failed: ${err instanceof Error ? err.message : String(err)}`, 5000);
+      if (state.uiMode === 'submitted') state.uiMode = 'main';
+      render(state, eventsPath);
+    });
     return false;
   }
   if (key === ' ') { state.paused = !state.paused; return false; }

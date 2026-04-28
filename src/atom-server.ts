@@ -147,6 +147,9 @@ export class AtomOfThoughtsServer {
       ? data.confidence as number
       : 0.7;
 
+    const kills = Array.isArray(data.kills) ? (data.kills as unknown[]).filter((s): s is string => typeof s === 'string') : undefined;
+    const confirms = Array.isArray(data.confirms) ? (data.confirms as unknown[]).filter((s): s is string => typeof s === 'string') : undefined;
+
     return {
       atomId: data.atomId as string,
       content: data.content as string,
@@ -156,6 +159,8 @@ export class AtomOfThoughtsServer {
       created: data.created as number || Date.now(),
       isVerified: data.isVerified as boolean || false,
       depth: data.depth as number | undefined,
+      kills: kills && kills.length > 0 ? kills : undefined,
+      confirms: confirms && confirms.length > 0 ? confirms : undefined,
     };
   }
 

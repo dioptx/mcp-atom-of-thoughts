@@ -28,6 +28,9 @@ export interface TuiState {
   maxDepth: number;
   lastEventAt: number | null;
   decompositions: Set<string>;
+  // Discovered from session_start events; used for HTTP submit + tagging.
+  sessionId?: string;
+  callbackUrl?: string;
   // UI state
   feedback: Record<string, AtomFeedback>;
   selectedIdx: number;     // index into the visible flat tree

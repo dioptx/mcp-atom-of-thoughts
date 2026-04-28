@@ -11,6 +11,12 @@ export interface AtomData {
   created: number;
   isVerified: boolean;
   depth?: number;
+  // Optional, verification-only fields. Surface the V→H relationship so
+  // viewers (TUI detail pane, examples/render-*.mjs) can highlight which
+  // hypotheses each verification eliminates or supports. Ignored by the
+  // default D3 viewer; the server itself doesn't reason about them.
+  kills?: string[];
+  confirms?: string[];
 }
 
 export interface DecompositionState {

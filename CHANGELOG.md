@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Live TUI**: `mcp-atom-of-thoughts tui` opens a second-pane viewer
+  that tails the event feed the MCP server writes. Shows a colored
+  atom tree, confidence bars, dependency arrows, a velocity sparkline,
+  selection cursor, settings overlay (`t`), and help overlay (`?`).
+- **Granular feedback from the TUI**: accept (`a`), reject with note
+  (`r`), star (`*`), clear (`u`), submit (`s`). On submit the verdict
+  POSTs to the local approval callback when one is reachable, with a
+  silent fallback to the file path that `atomcommands check_approval`
+  already polls. Zero new wire protocol.
+- **Event feed**: append-only JSONL written to `<output-dir>/aot-events.jsonl`
+  by default. Disable with `--no-tui-events` or redirect with
+  `--events-path <path>`. The `session_start` event carries the approval
+  callback URL so the TUI can pick it up without a side channel.
+- **TUI demo modes**: `tui --demo` plays a scripted reasoning session;
+  `tui --demo-instant` skips the warm-up and starts with the tree
+  already populated (handy for screenshots and recordings).
+- **Optional `kills` / `confirms` fields on verification atoms** (additive,
+  ignored by the existing D3 viewer). When present, the TUI surfaces
+  them as badges in the detail pane.
+
+### Changed
+
+- **Server banner** reports the events feed path when emission is on.
+
 ## [3.0.0] — 2026-04-13
 
 Major UX refactor. Tool surface collapsed to 3, sessions added,

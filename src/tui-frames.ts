@@ -108,7 +108,16 @@ export function renderDetail(state: TuiState, rows: FlatRow[], columns: number):
     ? chalk.dim('  deps: ') + atom.dependencies.join(', ')
     : chalk.dim('  deps: (none)');
   const text = chalk.white(truncate(atom.content, Math.max(20, columns - 4)));
-  return [head, ` ${text}`, deps, fbLine];
+  const lines = [head, ` ${text}`, deps, fbLine];
+  // Surface optional V-kills-H / V-confirms-H badges when present. Only V atoms
+  // carry these in practice, but render whatever is on the atom regardless.
+  if (atom.kills && atom.kills.length > 0) {
+    lines.push(chalk.red('  × kills: ') + atom.kills.join(', '));
+  }
+  if (atom.confirms && atom.confirms.length > 0) {
+    lines.push(chalk.green('  ✓ confirms: ') + atom.confirms.join(', '));
+  }
+  return lines;
 }
 
 export function renderProcessBar(state: TuiState, columns: number): string {

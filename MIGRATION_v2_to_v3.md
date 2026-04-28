@@ -88,3 +88,8 @@ If you keep your own dotfiles / skill files / docs that reference the v2 tool na
 - `mcp__atom-of-thoughts__export_graph` → `atomcommands` subcommand
 
 The audit doc `AUDIT_v2_to_v3_dotfiles.md` (committed at the start of the v3 work) was an inventory of one developer's specific dotfiles. Yours will differ; the patterns are the same.
+
+## Live TUI
+
+`mcp-atom-of-thoughts tui` runs a separate read-only viewer that tails an event feed the server writes. Nothing in v2 maps to it; existing v3 setups don't need to change anything to use it. The event feed is on by default; opt out with `--no-tui-events`. The TUI's submit (`s`) POSTs to the same approval callback the browser viz uses, with the same `~/Downloads` file fallback.
+

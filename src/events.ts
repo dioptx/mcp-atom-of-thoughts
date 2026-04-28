@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { AtomData } from './types.js';
 
 export type AotEvent =
-  | { kind: 'session_start'; t: number; mode: string; maxDepth: number; sessionId?: string }
+  | { kind: 'session_start'; t: number; mode: string; maxDepth: number; sessionId?: string; callbackUrl?: string }
   | { kind: 'atom_added'; t: number; atom: AtomData; sessionId?: string }
   | { kind: 'atom_verified'; t: number; atomId: string; confidence: number; sessionId?: string }
   | { kind: 'conclusion_suggested'; t: number; atomId: string; fromHypothesis: string; confidence: number; sessionId?: string }
