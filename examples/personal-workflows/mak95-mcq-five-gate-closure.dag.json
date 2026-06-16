@@ -1,0 +1,85 @@
+{
+  "title": "MAK95 MCQ Five-Gate Closure and Cluster Governance",
+  "sessionId": "app-mcq-five-gate-closure",
+  "constraints": [
+    "Start with dry-run previews and explicit validation gates",
+    "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
+    "Emit machine-readable artifacts agents can resume"
+  ],
+  "metadata": {
+    "slug": "mak95-mcq-five-gate-closure",
+    "source": "history-and-memex-review",
+    "outcome": "A controlled MCQ workflow where every row is either repaired, grounded, deduplicated, clustered, or terminal/manual with a machine-readable reason, then merged only after validator success."
+  },
+  "nodes": [
+    {
+      "id": "LOAD",
+      "title": "Load MCQ corpus, ledgers, and batch schema",
+      "type": "premise",
+      "content": "Read MCQ markdown/CSV sources, latest five-gate ledger, batch JSON, assigned result path, and validator command."
+    },
+    {
+      "id": "CLUSTER",
+      "title": "Deduplicate and cluster stems/options",
+      "type": "reasoning",
+      "requires": [
+        "LOAD"
+      ],
+      "content": "Normalize stems/options, cluster keyed-answer variants, and group by subtopic/frontmatter plus semantic near-duplicates."
+    },
+    {
+      "id": "GATE",
+      "title": "Route each row through five gates",
+      "type": "task",
+      "requires": [
+        "CLUSTER"
+      ],
+      "content": "For each MCQ row, classify as repairable, needs citation-bank grounding, duplicate merge, terminal placeholder, or manual review."
+    },
+    {
+      "id": "GROUND",
+      "title": "Ground option explanations with PageIndex anchors",
+      "type": "task",
+      "requires": [
+        "GATE"
+      ],
+      "content": "Prefer PageIndex page anchors and local evidence banks over generic web citations; reuse cluster-level citation banks for speed."
+    },
+    {
+      "id": "RESULT",
+      "title": "Write bounded result JSON only",
+      "type": "task",
+      "requires": [
+        "GROUND"
+      ],
+      "content": "Write the assigned result file without editing ledgers or canonical CSVs; include every original batch row or a valid terminal/manual status."
+    },
+    {
+      "id": "VALIDATE",
+      "title": "Run validator and merge dry-run",
+      "type": "validation",
+      "requires": [
+        "RESULT"
+      ],
+      "content": "Run the supplied validator, then dry-run merge/fast-closure before any canonical mutation.",
+      "acceptanceCriteria": [
+        "No missing batch rows",
+        "Terminal rows include explicit reason and gate"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "LOAD",
+      "to": "RESULT",
+      "type": "constrains",
+      "description": "bounded workers must touch only the assigned result artifact"
+    },
+    {
+      "from": "VALIDATE",
+      "to": "GATE",
+      "type": "entails",
+      "description": "validator errors feed the next gate-routing pass"
+    }
+  ]
+}

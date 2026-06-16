@@ -1,0 +1,126 @@
+{
+  "title": "Five personal AoT CLI application implementations",
+  "sessionId": "app-portfolio-meta",
+  "constraints": [
+    "Ground each application in observed session history or durable memory",
+    "Represent implementation as executable DAG JSON and human project guide",
+    "Use dry-run tracker previews by default",
+    "No mutation of user vaults, PageIndex, Linear, or br trackers during design"
+  ],
+  "nodes": [
+    {
+      "id": "HISTORY",
+      "title": "Mine session and memex history",
+      "type": "premise",
+      "content": "Identify repeated user workflows, failure modes, and durable context from session_search and memex recall."
+    },
+    {
+      "id": "SELECT",
+      "title": "Select five nuanced applications",
+      "type": "reasoning",
+      "requires": [
+        "HISTORY"
+      ],
+      "content": "Prefer applications that combine existing user tools with AoT DAG semantics: dependencies, constraints, entailments, dry-runs, and validation loops."
+    },
+    {
+      "id": "APP1",
+      "title": "ANZCA SAQ Syntopical Model-Answer Factory",
+      "type": "task",
+      "requires": [
+        "SELECT"
+      ],
+      "content": "A repeatable command workflow that turns a batch of SAQ IDs into examiner-fit markdown answer sets with explicit evidence provenance, route/audit metadata, validation logs, and an optional br/bv project graph."
+    },
+    {
+      "id": "APP2",
+      "title": "PageIndex R2L Evidence Crosswalk and PDF Ingestion",
+      "type": "task",
+      "requires": [
+        "SELECT"
+      ],
+      "content": "A safe ingestion project that segments local PDFs, uploads/updates PageIndex documents with R2L, records document IDs and page anchors, and emits a vault-facing crosswalk for SAQ, LO, and MCQ grounding."
+    },
+    {
+      "id": "APP3",
+      "title": "MAK95 MCQ Five-Gate Closure and Cluster Governance",
+      "type": "task",
+      "requires": [
+        "SELECT"
+      ],
+      "content": "A controlled MCQ workflow where every row is either repaired, grounded, deduplicated, clustered, or terminal/manual with a machine-readable reason, then merged only after validator success."
+    },
+    {
+      "id": "APP4",
+      "title": "Memex Agentic Memory Graph Maintenance Loop",
+      "type": "task",
+      "requires": [
+        "SELECT"
+      ],
+      "content": "A scheduled or on-demand maintenance project that converts session learnings into atomic cards, repairs graph topology, keeps semantic spines healthy, and validates graph health before sync."
+    },
+    {
+      "id": "APP5",
+      "title": "Agent Tooling Release Orchestrator",
+      "type": "task",
+      "requires": [
+        "SELECT"
+      ],
+      "content": "A release orchestration project that turns tool changes into an explicit reasoning DAG with tests, docs, Caliber sync, issue-tracker previews, safe pushes, and post-release memory capture."
+    },
+    {
+      "id": "VALIDATE",
+      "title": "Validate runnable DAG examples",
+      "type": "validation",
+      "requires": [
+        "APP1",
+        "APP2",
+        "APP3",
+        "APP4",
+        "APP5"
+      ],
+      "content": "Run aot dag --dryRun over every example and add tests that parse/normalize the DAGs."
+    },
+    {
+      "id": "DOC",
+      "title": "Publish implementation guide",
+      "type": "conclusion",
+      "requires": [
+        "VALIDATE"
+      ],
+      "content": "Write a comprehensive guide explaining applications, commands, deliverables, validation, and rollout sequencing."
+    }
+  ],
+  "edges": [
+    {
+      "from": "APP1",
+      "to": "DOC",
+      "type": "entails",
+      "description": "ANZCA SAQ Syntopical Model-Answer Factory contributes one implementation section and one runnable DAG example"
+    },
+    {
+      "from": "APP2",
+      "to": "DOC",
+      "type": "entails",
+      "description": "PageIndex R2L Evidence Crosswalk and PDF Ingestion contributes one implementation section and one runnable DAG example"
+    },
+    {
+      "from": "APP3",
+      "to": "DOC",
+      "type": "entails",
+      "description": "MAK95 MCQ Five-Gate Closure and Cluster Governance contributes one implementation section and one runnable DAG example"
+    },
+    {
+      "from": "APP4",
+      "to": "DOC",
+      "type": "entails",
+      "description": "Memex Agentic Memory Graph Maintenance Loop contributes one implementation section and one runnable DAG example"
+    },
+    {
+      "from": "APP5",
+      "to": "DOC",
+      "type": "entails",
+      "description": "Agent Tooling Release Orchestrator contributes one implementation section and one runnable DAG example"
+    }
+  ]
+}

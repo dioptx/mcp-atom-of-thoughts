@@ -1,0 +1,95 @@
+{
+  "title": "ANZCA SAQ Syntopical Model-Answer Factory",
+  "sessionId": "app-anzca-saq-factory",
+  "constraints": [
+    "Start with dry-run previews and explicit validation gates",
+    "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
+    "Emit machine-readable artifacts agents can resume"
+  ],
+  "metadata": {
+    "slug": "anzca-saq-syntopical-factory",
+    "source": "history-and-memex-review",
+    "outcome": "A repeatable command workflow that turns a batch of SAQ IDs into examiner-fit markdown answer sets with explicit evidence provenance, route/audit metadata, validation logs, and an optional br/bv project graph."
+  },
+  "nodes": [
+    {
+      "id": "SCOPE",
+      "title": "Resolve SAQ batch and canonical vault paths",
+      "type": "premise",
+      "content": "Input AP/CP question IDs are resolved to canonical MAK95 note paths, existing model-answer destinations, and validator expectations.",
+      "acceptanceCriteria": [
+        "Every requested SAQ maps to exactly one source note",
+        "Output paths follow existing model-answer-set conventions"
+      ]
+    },
+    {
+      "id": "RETRIEVE",
+      "title": "Retrieve PEX, PageIndex, and vault evidence",
+      "type": "task",
+      "requires": [
+        "SCOPE"
+      ],
+      "content": "Run PEX scope/examiner/brief/layers, PageIndex source orientation, Enzyme/vault retrieval, and local textbook import lookups.",
+      "acceptanceCriteria": [
+        "Evidence bundle names examiner comments, learning objectives, recurring domains, and source anchors"
+      ]
+    },
+    {
+      "id": "ROUTE",
+      "title": "Derive answer route and mark allocation",
+      "type": "reasoning",
+      "requires": [
+        "RETRIEVE"
+      ],
+      "content": "Convert evidence into route primitives, mark budget, examiner traps, and 8-minute answer shape.",
+      "acceptanceCriteria": [
+        "Route/audit signals are explicit enough for validate_answer_markdown.py"
+      ]
+    },
+    {
+      "id": "WRITE",
+      "title": "Generate model answer set",
+      "type": "task",
+      "requires": [
+        "ROUTE"
+      ],
+      "content": "Write model-answer-set markdown with source wikilinks, BORROW, answer, examiner-fitness audit, defect class, regression note, and reviewer sign-off."
+    },
+    {
+      "id": "VALIDATE",
+      "title": "Run validator and coverage audit",
+      "type": "validation",
+      "requires": [
+        "WRITE"
+      ],
+      "content": "Run the MAK95 answer validator and a citation/link checker; only then optionally sync AoT/br and run bv triage.",
+      "acceptanceCriteria": [
+        "Validator passes",
+        "No source phase files or coverage ledgers are mutated unless explicitly requested"
+      ]
+    },
+    {
+      "id": "PROVENANCE",
+      "title": "Preserve non-polluting reasoning graph",
+      "type": "conclusion",
+      "requires": [
+        "VALIDATE"
+      ],
+      "content": "Export AoT atoms or dry-run br plan as an audit trail without polluting issue trackers by default."
+    }
+  ],
+  "edges": [
+    {
+      "from": "ROUTE",
+      "to": "WRITE",
+      "type": "constrains",
+      "description": "model answer content must expose route and audit signals, not just prose"
+    },
+    {
+      "from": "VALIDATE",
+      "to": "PROVENANCE",
+      "type": "entails",
+      "description": "only validated answer batches become durable audit examples"
+    }
+  ]
+}

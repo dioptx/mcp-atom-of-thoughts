@@ -1,0 +1,87 @@
+{
+  "title": "PageIndex R2L Evidence Crosswalk and PDF Ingestion",
+  "sessionId": "app-pageindex-r2l-crosswalk",
+  "constraints": [
+    "Start with dry-run previews and explicit validation gates",
+    "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
+    "Emit machine-readable artifacts agents can resume"
+  ],
+  "metadata": {
+    "slug": "pageindex-r2l-evidence-crosswalk",
+    "source": "history-and-memex-review",
+    "outcome": "A safe ingestion project that segments local PDFs, uploads/updates PageIndex documents with R2L, records document IDs and page anchors, and emits a vault-facing crosswalk for SAQ, LO, and MCQ grounding."
+  },
+  "nodes": [
+    {
+      "id": "INVENTORY",
+      "title": "Inventory local PDFs and remote PageIndex folders",
+      "type": "premise",
+      "content": "List local PDFs, existing remote docs, R2L status, folder IDs, and deletion/reupload constraints.",
+      "acceptanceCriteria": [
+        "Dry-run inventory shows exact create/update/remove set"
+      ]
+    },
+    {
+      "id": "SEGMENT",
+      "title": "Segment large PDFs into topic-level documents",
+      "type": "task",
+      "requires": [
+        "INVENTORY"
+      ],
+      "content": "Use the PageIndex CLI segmentation plan to split high-density notes into stable topic PDFs with deterministic names and page ranges."
+    },
+    {
+      "id": "UPLOAD",
+      "title": "Upload or update with R2L enabled",
+      "type": "task",
+      "requires": [
+        "SEGMENT"
+      ],
+      "content": "Perform one-document apply smoke test, then batch upload with R2L and folder placement; avoid destructive deletion unless API behavior is proven.",
+      "acceptanceCriteria": [
+        "At least one minimal end-to-end upload/R2L run succeeds before batch apply"
+      ]
+    },
+    {
+      "id": "CAPTURE",
+      "title": "Capture PageIndex IDs, R2L state, and anchors",
+      "type": "task",
+      "requires": [
+        "UPLOAD"
+      ],
+      "content": "Persist document IDs, fileName, folder, page ranges, and OCR/R2L readiness into a local manifest."
+    },
+    {
+      "id": "CROSSWALK",
+      "title": "Build SAQ/LO/MCQ evidence crosswalk",
+      "type": "reasoning",
+      "requires": [
+        "CAPTURE"
+      ],
+      "content": "Map PageIndex documents and page anchors onto vault SAQs, learning objectives, MCQs, and future answer generation bundles."
+    },
+    {
+      "id": "AUDIT",
+      "title": "Audit drift and unresolved sources",
+      "type": "validation",
+      "requires": [
+        "CROSSWALK"
+      ],
+      "content": "Detect missing file names, API remove failures, unmapped documents, duplicate IDs, and stale R2L statuses."
+    }
+  ],
+  "edges": [
+    {
+      "from": "INVENTORY",
+      "to": "UPLOAD",
+      "type": "constrains",
+      "description": "remote mutation must be preceded by a dry-run exact target set"
+    },
+    {
+      "from": "CAPTURE",
+      "to": "CROSSWALK",
+      "type": "entails",
+      "description": "stable document IDs unlock reproducible citation anchors"
+    }
+  ]
+}

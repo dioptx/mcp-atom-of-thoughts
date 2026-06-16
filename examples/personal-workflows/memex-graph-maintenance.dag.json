@@ -1,0 +1,81 @@
+{
+  "title": "Memex Agentic Memory Graph Maintenance Loop",
+  "sessionId": "app-memex-graph-maintenance",
+  "constraints": [
+    "Start with dry-run previews and explicit validation gates",
+    "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
+    "Emit machine-readable artifacts agents can resume"
+  ],
+  "metadata": {
+    "slug": "memex-graph-maintenance",
+    "source": "history-and-memex-review",
+    "outcome": "A scheduled or on-demand maintenance project that converts session learnings into atomic cards, repairs graph topology, keeps semantic spines healthy, and validates graph health before sync."
+  },
+  "nodes": [
+    {
+      "id": "RECALL",
+      "title": "Start with scored recall packet",
+      "type": "premise",
+      "content": "Retrieve task-specific memex cards with compact results, then read only necessary leaf cards."
+    },
+    {
+      "id": "OBSERVE",
+      "title": "Observe session decisions and gotchas",
+      "type": "task",
+      "requires": [
+        "RECALL"
+      ],
+      "content": "Identify durable insights from actual work: architecture decisions, root causes, conventions, and repeated mistakes."
+    },
+    {
+      "id": "WRITE",
+      "title": "Write atomic linked cards",
+      "type": "task",
+      "requires": [
+        "OBSERVE"
+      ],
+      "content": "Use memex_retro for one insight per card; link through semantic spines or canonical hubs rather than direct index sprawl."
+    },
+    {
+      "id": "REPAIR",
+      "title": "Repair topology and unresolved aliases",
+      "type": "reasoning",
+      "requires": [
+        "WRITE"
+      ],
+      "content": "Run scoped organize/doctor/topology scripts; create routing hubs for repeated unresolved concepts, but avoid maintenance-card PageRank bloat."
+    },
+    {
+      "id": "SYNC",
+      "title": "Sync and verify graph health",
+      "type": "validation",
+      "requires": [
+        "REPAIR"
+      ],
+      "content": "Run doctor/topology metrics and sync only scoped card/report files; never commit derived embeddings caches."
+    },
+    {
+      "id": "BRIEF",
+      "title": "Generate next-session wakeup brief",
+      "type": "conclusion",
+      "requires": [
+        "SYNC"
+      ],
+      "content": "Emit compact AAAK-style context for future agents: decisions, gotchas, open loops, and relevant card slugs."
+    }
+  ],
+  "edges": [
+    {
+      "from": "RECALL",
+      "to": "WRITE",
+      "type": "constrains",
+      "description": "new memory must be informed by existing graph context to avoid duplicates"
+    },
+    {
+      "from": "REPAIR",
+      "to": "BRIEF",
+      "type": "entails",
+      "description": "healthy graph topology improves future wakeup packet quality"
+    }
+  ]
+}

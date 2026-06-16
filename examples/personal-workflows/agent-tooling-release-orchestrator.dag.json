@@ -1,0 +1,81 @@
+{
+  "title": "Agent Tooling Release Orchestrator",
+  "sessionId": "app-agent-tooling-release-orchestrator",
+  "constraints": [
+    "Start with dry-run previews and explicit validation gates",
+    "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
+    "Emit machine-readable artifacts agents can resume"
+  ],
+  "metadata": {
+    "slug": "agent-tooling-release-orchestrator",
+    "source": "history-and-memex-review",
+    "outcome": "A release orchestration project that turns tool changes into an explicit reasoning DAG with tests, docs, Caliber sync, issue-tracker previews, safe pushes, and post-release memory capture."
+  },
+  "nodes": [
+    {
+      "id": "DISCOVER",
+      "title": "Discover tool surface and constraints",
+      "type": "premise",
+      "content": "Inspect CLI help/schema, existing tests, AGENTS/Caliber rules, remotes, dirty state, and optional external tools."
+    },
+    {
+      "id": "RED",
+      "title": "Write tests from real workflow friction",
+      "type": "test",
+      "requires": [
+        "DISCOVER"
+      ],
+      "content": "Exercise the CLI as an agent would, encode failures as focused tests, and confirm red before patching."
+    },
+    {
+      "id": "GREEN",
+      "title": "Patch through adapter layers",
+      "type": "task",
+      "requires": [
+        "RED"
+      ],
+      "content": "Implement minimal changes in small integration adapters rather than bloating the command surface."
+    },
+    {
+      "id": "DOCS",
+      "title": "Update agent-facing docs and examples",
+      "type": "task",
+      "requires": [
+        "GREEN"
+      ],
+      "content": "Update README/agent docs/changelog/examples with command shapes, dry-run paths, and structured outputs."
+    },
+    {
+      "id": "VERIFY",
+      "title": "Run build, tests, smoke, Caliber, and diff checks",
+      "type": "validation",
+      "requires": [
+        "DOCS"
+      ],
+      "content": "Run full test/build, targeted smoke workflows, git diff --check, Caliber refresh or hook, and pre-push checks."
+    },
+    {
+      "id": "RELEASE",
+      "title": "Commit, push, and capture learnings",
+      "type": "conclusion",
+      "requires": [
+        "VERIFY"
+      ],
+      "content": "Commit scoped changes, push to the intended private remote without disturbing upstream origin, verify remote, and save durable memex learning."
+    }
+  ],
+  "edges": [
+    {
+      "from": "DISCOVER",
+      "to": "GREEN",
+      "type": "constrains",
+      "description": "patches must respect existing adapter boundaries and remote hygiene"
+    },
+    {
+      "from": "VERIFY",
+      "to": "RELEASE",
+      "type": "entails",
+      "description": "only verified releases get pushed and memorialized"
+    }
+  ]
+}
