@@ -7,7 +7,7 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 [![npm version](https://img.shields.io/npm/v/@dioptx/mcp-atom-of-thoughts?color=0969da)](https://www.npmjs.com/package/@dioptx/mcp-atom-of-thoughts)
 [![license](https://img.shields.io/npm/l/@dioptx/mcp-atom-of-thoughts?color=22c55e)](LICENSE)
 [![node](https://img.shields.io/node/v/@dioptx/mcp-atom-of-thoughts)](package.json)
-[![tests](https://img.shields.io/badge/tests-191%20passed-brightgreen)](#development)
+[![tests](https://img.shields.io/badge/tests-217%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
 ![Atom of Thoughts: live TUI watching reasoning unfold](assets/demo-watch.gif)
@@ -33,6 +33,8 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 
 **2.** Restart your client.
 
+If `npx` returns a registry 404 before this release is published, use the source install path below and set the MCP command to `mcp-atom-of-thoughts`.
+
 **3.** Ask the model to reason something through:
 
 > *"Use AoT-fast to think through whether we should use JWT or session-based auth for the API."*
@@ -44,12 +46,21 @@ The model breaks the problem into five kinds of atoms (premise, reasoning, hypot
 
 ## Install
 
-**npx** *(recommended; zero install, always latest)*
+**Source install** *(reliable when the npm registry package is not yet published)*
+```bash
+git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
+cd mcp-atom-of-thoughts
+npm ci
+npm run build
+npm link
+```
+
+**npx** *(once published; zero install, always latest)*
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
 
-**npm global**
+**npm global** *(once published)*
 ```bash
 npm install -g @dioptx/mcp-atom-of-thoughts
 ```
@@ -182,7 +193,11 @@ For larger real-world patterns, see [`docs/personal-workflow-applications.md`](d
 After building, run all personal workflow previews and persist resumable envelopes with:
 
 ```bash
+npm ci
+npm run build
 npm run examples:dry-run
+# or keep generated envelopes outside the repo
+npm run examples:dry-run -- --out=/tmp/aot-personal-workflows
 ```
 
 ### Visualization
@@ -320,9 +335,10 @@ docker build -t aot . && docker run -i --rm aot
 ```bash
 git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
 cd mcp-atom-of-thoughts
-npm install
-npm test        # 191 tests (unit + e2e)
+npm ci
 npm run build
+npm test        # 217 tests (unit + e2e + workflow DAG safety)
+npm run examples:dry-run
 ```
 
 </details>

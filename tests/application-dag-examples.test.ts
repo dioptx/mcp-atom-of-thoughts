@@ -96,4 +96,18 @@ describe('personal workflow DAG examples', () => {
     expect(pkg.scripts['examples:dry-run']).toBe('node scripts/run-personal-workflows.mjs --all --dry-run');
     expect(fs.readFileSync(path.join(process.cwd(), '.gitignore'), 'utf8')).toContain('out/');
   });
+
+  it('keeps workflow assets included in the npm package surface', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+    const ci = fs.readFileSync(path.join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+    const cliSource = fs.readFileSync(path.join(process.cwd(), 'src', 'cli.ts'), 'utf8');
+
+    expect(pkg.version).toBe('3.1.0');
+    expect(cliSource).toContain("const VERSION = '3.1.0'");
+    expect(pkg.files).toEqual(expect.arrayContaining(['docs', 'examples', 'schemas', 'scripts/run-personal-workflows.mjs', 'MIGRATION_v2_to_v3.md', 'SECURITY.md']));
+    expect(pkg.bin).toMatchObject({ aot: './build/cli.js', 'mcp-atom-of-thoughts': './build/index.js' });
+    expect(ci).toContain('npm run examples:dry-run');
+    expect(ci).toContain('npm pack --dry-run');
+    expect(ci).toContain('node build/cli.js --llms');
+  });
 });

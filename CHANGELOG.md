@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-06-16
+
 ### Added
 
 - Native `aot` CLI with persistent state, schema/LLM manifests, batch JSON/stdin atom creation, and explicit `aot server` MCP mode.
@@ -16,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Personal workflow application guide plus runnable DAG examples for ANZCA SAQ synthesis, PageIndex/R2L evidence crosswalks, MAK95 MCQ five-gate closure, memex graph maintenance, and agent-tooling release orchestration.
 - Critical-evaluation synthesis documenting subagent reviewer findings and self-improvement rules for turning prose-only safety guidance into executable DAG gates.
 - Second-pass safety metadata schema and dry-run harness for personal workflow DAGs, including typed checkpoint, rollback, approval, privacy, timeout, and proof-artifact metadata.
+- Package finalization for the workflow portfolio: tarball includes docs/examples/schemas/scripts, CI runs example dry-runs and pack smoke checks, and CLI/package versions are aligned.
 
 ### Changed
 
@@ -26,7 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Tests
 
-- 217 tests passing across 15 test files, including CLI integration, DAG relation semantics, dry-run tracker previews, validation payloads, personal workflow DAG examples, subagent-derived safety gate regressions, typed workflow safety metadata, external refs, and structured external-command error payloads.
+- 218 tests passing across 15 test files, including CLI integration, DAG relation semantics, dry-run tracker previews, validation payloads, personal workflow DAG examples, subagent-derived safety gate regressions, typed workflow safety metadata, package-surface finalization, external refs, and structured external-command error payloads.
 
 ## [3.0.0] — 2026-04-13
 

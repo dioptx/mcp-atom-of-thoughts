@@ -21,3 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - run: npm run examples:dry-run -- --out=/tmp/aot-personal-workflows
+      - run: npm pack --dry-run
+      - run: node build/cli.js --help
+      - run: node build/cli.js --llms

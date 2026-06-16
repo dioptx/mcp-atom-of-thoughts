@@ -15,7 +15,7 @@ import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, summa
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 
-const VERSION = '0.4.0';
+const VERSION = '3.1.0';
 const OUTPUT_SCHEMA_VERSION = 'aot.cli.pipeline.v1';
 const SERVER_BIN = process.env.AOT_SERVER_BIN ?? path.join(path.dirname(new URL(import.meta.url).pathname), 'index.js');
 const STATE_PATH = process.env.AOT_STATE ?? path.join(os.homedir(), '.local/state/aot-cli/state.json');

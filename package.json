@@ -1,6 +1,6 @@
 {
   "name": "@dioptx/mcp-atom-of-thoughts",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "MCP server for structured reasoning via Atom of Thoughts — decompose problems into atomic units with confidence tracking and interactive visualization",
   "main": "build/index.js",
   "type": "module",
@@ -17,10 +17,17 @@
   },
   "files": [
     "build",
-    "assets/d3.v7.min.js",
+    "assets",
+    "docs",
+    "examples",
+    "schemas",
+    "scripts/run-personal-workflows.mjs",
     "LICENSE",
     "README.md",
-    "CHANGELOG.md"
+    "README.agents.md",
+    "CHANGELOG.md",
+    "MIGRATION_v2_to_v3.md",
+    "SECURITY.md"
   ],
   "keywords": [
     "mcp",
