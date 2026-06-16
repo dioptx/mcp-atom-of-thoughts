@@ -7,7 +7,7 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 [![npm version](https://img.shields.io/npm/v/@dioptx/mcp-atom-of-thoughts?color=0969da)](https://www.npmjs.com/package/@dioptx/mcp-atom-of-thoughts)
 [![license](https://img.shields.io/npm/l/@dioptx/mcp-atom-of-thoughts?color=22c55e)](LICENSE)
 [![node](https://img.shields.io/node/v/@dioptx/mcp-atom-of-thoughts)](package.json)
-[![tests](https://img.shields.io/badge/tests-183%20passed-brightgreen)](#development)
+[![tests](https://img.shields.io/badge/tests-191%20passed-brightgreen)](#development)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
 ![Atom of Thoughts: live TUI watching reasoning unfold](assets/demo-watch.gif)
@@ -55,6 +55,13 @@ npm install -g @dioptx/mcp-atom-of-thoughts
 ```
 ```json
 { "command": "mcp-atom-of-thoughts" }
+```
+
+Global install also exposes the agent-friendly `aot` CLI:
+
+```bash
+aot --help
+aot --llms
 ```
 
 **Smithery**
@@ -107,6 +114,68 @@ AoT-fast({atomId:"C1", content:"Add try-catch in POST handler",       atomType:"
 ```
 
 Only `atomId`, `content`, and `atomType` are required. Everything else has sensible defaults.
+
+## Agent CLI
+
+`aot` is a native, stateful CLI for agents and humans who need the same reasoning graph outside MCP stdio. It uses the same AoT server state, emits structured output via incur (`--format json`, `--schema`, `--llms`), and keeps MCP server mode explicit with `aot server` or `aot --mcp`.
+
+```bash
+# Add atoms to persistent CLI state
+aot fast premise P1 "API returns 500" --confidence 0.9
+aot fast reasoning R1 "Handler likely throws" --deps P1
+
+# Batch JSON from a file or stdin in one locked transaction
+aot batch @atoms.json --noBeads
+
+# Sync the active AoT graph to br/beads, then ask bv for next work
+aot audit triage --maxResults 5
+```
+
+### DAG planning across AoT, br, bv, Git, and Linear
+
+Use `aot dag` when an agent needs to encode a task graph with hard dependencies plus softer constraints and entailments. The command accepts JSON, `@file`, or stdin, then can create AoT atoms, sync br/beads dependencies, optionally create Linear issues/relations, capture Git context, and run bv robot triage.
+
+```json
+{
+  "title": "Auth hardening",
+  "sessionId": "auth-hardening",
+  "constraints": ["preview before mutating external trackers"],
+  "nodes": [
+    { "id": "REQ", "title": "Define auth contract", "type": "constraint" },
+    { "id": "IMPL", "title": "Implement auth adapter", "type": "task", "dependsOn": ["REQ"] },
+    { "id": "VAL", "title": "Validate auth flow", "type": "validation" }
+  ],
+  "edges": [
+    { "from": "IMPL", "to": "VAL", "type": "entails", "blocking": false },
+    { "from": "VAL", "to": "IMPL", "type": "constrains", "description": "implementation must satisfy validation" }
+  ]
+}
+```
+
+```bash
+# Safe preview: no AoT state, br, Linear, or bv mutations
+aot dag @dag.json --dryRun --linear --format json
+
+# Apply after inspecting dry-run output
+aot dag @dag.json --linear --linearTeam ENG --brCwd . --maxResults 5
+```
+
+Relationship semantics:
+
+| DAG relation | Scheduling effect | br/beads mapping | Linear mapping |
+|--------------|-------------------|------------------|----------------|
+| `depends_on`, `requires`, `blocks` | hard blocker | `blocks` dependency | `blocks` relation |
+| `constrains` | guardrail/validation constraint | typed dependency metadata | `related` unless `blocking:true` |
+| `entails` | downstream consequence/readiness | typed dependency metadata | `related` unless `blocking:true` |
+| `related` | context only | typed dependency metadata | `related` |
+
+Safety contract:
+
+- Pipeline outputs include `schemaVersion`, `runId`, `generatedAt`, and `pipeline`.
+- `--dryRun` returns planned AoT/br/Linear actions without external side effects.
+- Linear writes are idempotent: each node description includes `AoT external ref: aot:<session>:<node>`, and real runs search that marker before creating issues.
+- Linear descriptions are sent on stdin with `--description -`, so markdown never leaks into shell argv.
+- External command failures return structured `{status:"error", code, command, args, exitCode, stderrHint}` payloads.
 
 ### Visualization
 
@@ -244,7 +313,7 @@ docker build -t aot . && docker run -i --rm aot
 git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
 cd mcp-atom-of-thoughts
 npm install
-npm test        # 183 tests (unit + e2e)
+npm test        # 191 tests (unit + e2e)
 npm run build
 ```
 

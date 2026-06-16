@@ -10,6 +10,12 @@ import { EventLog } from './events.js';
 
 const DEFAULT_SESSION_ID = 'default';
 
+export interface AtomServerSnapshot {
+  activeSessionId: string;
+  maxDepth: number;
+  sessions: Record<string, Session>;
+}
+
 export class AtomOfThoughtsServer {
   protected sessions: Record<string, Session> = {};
   protected activeSessionId: string = DEFAULT_SESSION_ID;
@@ -51,6 +57,26 @@ export class AtomOfThoughtsServer {
 
   public getActiveSessionId(): string {
     return this.activeSessionId;
+  }
+
+  public exportState(): AtomServerSnapshot {
+    return {
+      activeSessionId: this.activeSessionId,
+      maxDepth: this.maxDepth,
+      sessions: this.sessions,
+    };
+  }
+
+  public importState(state: Partial<AtomServerSnapshot>): void {
+    if (state.sessions && typeof state.sessions === 'object') {
+      this.sessions = state.sessions;
+    }
+    if (state.activeSessionId && this.sessions[state.activeSessionId]) {
+      this.activeSessionId = state.activeSessionId;
+    }
+    if (Number.isFinite(Number(state.maxDepth)) && Number(state.maxDepth) > 0) {
+      this.maxDepth = Number(state.maxDepth);
+    }
   }
 
   public newSession(id?: string): string {

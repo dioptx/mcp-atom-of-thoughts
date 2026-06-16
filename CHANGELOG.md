@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- Native `aot` CLI with persistent state, schema/LLM manifests, batch JSON/stdin atom creation, and explicit `aot server` MCP mode.
+- br/beads and bv integrations for syncing AoT graphs to issue dependencies and evaluating ready/blocked work.
+- `aot dag` for task DAGs with hard dependencies plus typed `constrains`, `entails`, and `related` edges.
+- Optional Linear integration for DAG nodes/relations with dry-run preview, Git context capture, idempotent `AoT external ref: aot:<session>:<node>` markers, stdin descriptions, and structured error payloads.
+- PEX retrieval seeding commands for exam-oriented atom generation.
+
+### Changed
+
+- Pipeline command outputs now include `schemaVersion`, `runId`, `generatedAt`, and `pipeline` for agent-safe auditing and replay.
+- Graph export types support rich node/link metadata used by br/beads and DAG adapters.
+
+### Tests
+
+- 191 tests passing across 14 test files, including CLI integration, DAG relation semantics, external refs, and structured external-command error payloads.
+
 ## [3.0.0] — 2026-04-13
 
 Major UX refactor. Tool surface collapsed to 3, sessions added,

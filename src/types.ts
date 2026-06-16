@@ -46,11 +46,19 @@ export interface GraphNode {
   confidence: number;
   depth: number;
   isVerified?: boolean;
+  title?: string;
+  labels?: string[];
+  priority?: string;
+  description?: string;
+  externalRef?: string;
 }
 
 export interface GraphLink {
   source: string;
   target: string;
+  relation?: string;
+  blocking?: boolean;
+  description?: string;
 }
 
 export interface GraphData {
