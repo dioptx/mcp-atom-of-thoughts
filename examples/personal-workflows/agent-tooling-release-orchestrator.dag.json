@@ -3,13 +3,16 @@
   "sessionId": "app-agent-tooling-release-orchestrator",
   "constraints": [
     "Start with dry-run previews and explicit validation gates",
+    "Promote safety rules into executable DAG nodes, not prose-only constraints",
     "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
-    "Emit machine-readable artifacts agents can resume"
+    "Emit machine-readable artifacts agents can resume",
+    "Every high-risk write, sync, or release node must declare observable acceptance criteria",
+    "Treat verify mega-nodes as risk; every release gate must emit observable proof"
   ],
   "metadata": {
     "slug": "agent-tooling-release-orchestrator",
-    "source": "history-and-memex-review",
-    "outcome": "A release orchestration project that turns tool changes into an explicit reasoning DAG with tests, docs, Caliber sync, issue-tracker previews, safe pushes, and post-release memory capture."
+    "source": "subagent-critical-evaluation",
+    "outcome": "Release orchestration with split verification, remote hygiene, scoped commits, and pre/post durable learning"
   },
   "nodes": [
     {
@@ -19,13 +22,29 @@
       "content": "Inspect CLI help/schema, existing tests, AGENTS/Caliber rules, remotes, dirty state, and optional external tools."
     },
     {
+      "id": "OWNERSHIP",
+      "title": "Map dirty state, pathspec scope, and abort criteria",
+      "type": "validation",
+      "requires": [
+        "DISCOVER"
+      ],
+      "content": "Establish worktree ownership before editing or committing.",
+      "acceptanceCriteria": [
+        "Unrelated dirty files are absent or explicitly excluded",
+        "Remote target and pathspec plan are recorded"
+      ]
+    },
+    {
       "id": "RED",
       "title": "Write tests from real workflow friction",
       "type": "test",
       "requires": [
-        "DISCOVER"
+        "OWNERSHIP"
       ],
-      "content": "Exercise the CLI as an agent would, encode failures as focused tests, and confirm red before patching."
+      "content": "Exercise the CLI as an agent would, encode failures as focused tests, and confirm red before patching.",
+      "acceptanceCriteria": [
+        "Focused test fails for expected reason"
+      ]
     },
     {
       "id": "GREEN",
@@ -46,36 +65,151 @@
       "content": "Update README/agent docs/changelog/examples with command shapes, dry-run paths, and structured outputs."
     },
     {
-      "id": "VERIFY",
-      "title": "Run build, tests, smoke, Caliber, and diff checks",
+      "id": "VERIFY_TESTS",
+      "title": "Run targeted and full tests/build",
       "type": "validation",
       "requires": [
         "DOCS"
       ],
-      "content": "Run full test/build, targeted smoke workflows, git diff --check, Caliber refresh or hook, and pre-push checks."
+      "content": "Run targeted red/green test, full test suite, and build.",
+      "acceptanceCriteria": [
+        "Test/build logs are captured"
+      ]
     },
     {
-      "id": "RELEASE",
-      "title": "Commit, push, and capture learnings",
+      "id": "VERIFY_SMOKE",
+      "title": "Run reproducible published-path smoke workflows",
+      "type": "validation",
+      "requires": [
+        "VERIFY_TESTS"
+      ],
+      "content": "Exercise the built CLI path with realistic command inputs and JSON outputs.",
+      "acceptanceCriteria": [
+        "Smoke JSON includes status ok or expected structured error"
+      ]
+    },
+    {
+      "id": "VERIFY_DOCS_SCHEMA",
+      "title": "Check docs and examples against CLI schema",
+      "type": "validation",
+      "requires": [
+        "VERIFY_SMOKE"
+      ],
+      "content": "Confirm docs/examples still match help/schema and runnable DAG examples.",
+      "acceptanceCriteria": [
+        "Example commands parse and docs point to existing paths"
+      ]
+    },
+    {
+      "id": "VERIFY_CALIBER",
+      "title": "Run Caliber hook or refresh proof",
+      "type": "validation",
+      "requires": [
+        "VERIFY_DOCS_SCHEMA"
+      ],
+      "content": "Verify Caliber hook or run refresh manually and record whether config updates occurred.",
+      "acceptanceCriteria": [
+        "Hook-active or manual refresh result is recorded",
+        "Any Caliber-generated config changes are included or explicitly absent"
+      ]
+    },
+    {
+      "id": "VERIFY_DIFF_SCOPE",
+      "title": "Review scoped diff and whitespace",
+      "type": "validation",
+      "requires": [
+        "VERIFY_CALIBER"
+      ],
+      "content": "Run git diff --check and inspect staged path scope for unrelated changes.",
+      "acceptanceCriteria": [
+        "Diff check passes",
+        "Only intended files are staged"
+      ]
+    },
+    {
+      "id": "VERIFY_REMOTE",
+      "title": "Confirm private remote target",
+      "type": "validation",
+      "requires": [
+        "VERIFY_DIFF_SCOPE"
+      ],
+      "content": "Confirm push remote URL, visibility, default branch, and that upstream origin will not be disturbed.",
+      "acceptanceCriteria": [
+        "Private remote proof recorded"
+      ]
+    },
+    {
+      "id": "COMMIT_SCOPED",
+      "title": "Commit only scoped changes",
+      "type": "task",
+      "requires": [
+        "VERIFY_REMOTE"
+      ],
+      "content": "Commit with message matching the verified scope.",
+      "acceptanceCriteria": [
+        "Commit includes only intended pathspec scope",
+        "Commit hash and message are recorded"
+      ]
+    },
+    {
+      "id": "PUSH_PRIVATE_REMOTE",
+      "title": "Push to intended private remote",
+      "type": "task",
+      "requires": [
+        "COMMIT_SCOPED"
+      ],
+      "content": "Push only to the verified private remote and allow pre-push checks to run.",
+      "acceptanceCriteria": [
+        "Push target matches verified private remote",
+        "Pre-push checks pass or structured failure is captured"
+      ]
+    },
+    {
+      "id": "VERIFY_REMOTE_STATE",
+      "title": "Verify remote state after push",
+      "type": "validation",
+      "requires": [
+        "PUSH_PRIVATE_REMOTE"
+      ],
+      "content": "Check remote commit, branch tracking, private visibility, and clean worktree.",
+      "acceptanceCriteria": [
+        "Local branch tracks private remote and worktree is clean"
+      ]
+    },
+    {
+      "id": "CAPTURE_LEARNING",
+      "title": "Capture durable success and near-miss learning",
       "type": "conclusion",
       "requires": [
-        "VERIFY"
+        "VERIFY_REMOTE_STATE"
       ],
-      "content": "Commit scoped changes, push to the intended private remote without disturbing upstream origin, verify remote, and save durable memex learning."
+      "content": "Save memex learning with commit hash, validation proof, and near-miss risks before considering the release closed."
     }
   ],
   "edges": [
     {
-      "from": "DISCOVER",
-      "to": "GREEN",
+      "from": "OWNERSHIP",
+      "to": "COMMIT_SCOPED",
       "type": "constrains",
-      "description": "patches must respect existing adapter boundaries and remote hygiene"
+      "description": "commit pathspec must respect initial worktree ownership map"
     },
     {
-      "from": "VERIFY",
-      "to": "RELEASE",
+      "from": "RED",
+      "to": "GREEN",
+      "type": "constrains",
+      "description": "implementation is valid only after expected red failure"
+    },
+    {
+      "from": "VERIFY_REMOTE",
+      "to": "PUSH_PRIVATE_REMOTE",
+      "type": "constrains",
+      "description": "push target must be private and explicit"
+    },
+    {
+      "from": "VERIFY_REMOTE_STATE",
+      "to": "CAPTURE_LEARNING",
       "type": "entails",
-      "description": "only verified releases get pushed and memorialized"
+      "description": "durable learning captures verified outcome and near misses"
     }
   ]
 }

@@ -3,79 +3,162 @@
   "sessionId": "app-memex-graph-maintenance",
   "constraints": [
     "Start with dry-run previews and explicit validation gates",
+    "Promote safety rules into executable DAG nodes, not prose-only constraints",
     "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
-    "Emit machine-readable artifacts agents can resume"
+    "Emit machine-readable artifacts agents can resume",
+    "Every high-risk write, sync, or release node must declare observable acceptance criteria",
+    "Memory writes require baseline, deduplication, topology delta, scoped sync, and post-sync verification"
   ],
   "metadata": {
     "slug": "memex-graph-maintenance",
-    "source": "history-and-memex-review",
-    "outcome": "A scheduled or on-demand maintenance project that converts session learnings into atomic cards, repairs graph topology, keeps semantic spines healthy, and validates graph health before sync."
+    "source": "subagent-critical-evaluation",
+    "outcome": "Memory graph maintenance with baseline/dedup/write/apply/sync/post-verify separation"
   },
   "nodes": [
     {
       "id": "RECALL",
       "title": "Start with scored recall packet",
       "type": "premise",
-      "content": "Retrieve task-specific memex cards with compact results, then read only necessary leaf cards."
+      "content": "Retrieve task-specific memex cards with compact results, then read only necessary leaf cards.",
+      "acceptanceCriteria": [
+        "Recall output is compact and records slugs read"
+      ]
+    },
+    {
+      "id": "BASELINE",
+      "title": "Capture graph health and dirty-state baseline",
+      "type": "validation",
+      "requires": [
+        "RECALL"
+      ],
+      "content": "Run doctor/topology/dirty-state checks before any new card creation.",
+      "acceptanceCriteria": [
+        "Baseline includes orphan, broken-link, hub-degree, dirty-state, and staged-file metrics"
+      ]
     },
     {
       "id": "OBSERVE",
       "title": "Observe session decisions and gotchas",
       "type": "task",
       "requires": [
-        "RECALL"
+        "BASELINE"
       ],
       "content": "Identify durable insights from actual work: architecture decisions, root causes, conventions, and repeated mistakes."
     },
     {
-      "id": "WRITE",
-      "title": "Write atomic linked cards",
-      "type": "task",
+      "id": "DEDUP",
+      "title": "Check duplicates and contradictions before writing",
+      "type": "validation",
       "requires": [
         "OBSERVE"
       ],
-      "content": "Use memex_retro for one insight per card; link through semantic spines or canonical hubs rather than direct index sprawl."
+      "content": "Compare candidate memories against existing cards for duplicate, contradiction, and better-home matches.",
+      "acceptanceCriteria": [
+        "Each candidate has write/update/skip decision"
+      ]
+    },
+    {
+      "id": "WRITE_DRY_RUN",
+      "title": "Preview atomic linked cards",
+      "type": "verification",
+      "requires": [
+        "DEDUP"
+      ],
+      "content": "Draft one-insight-per-card content and links without syncing or committing.",
+      "acceptanceCriteria": [
+        "No direct [[index]] sprawl",
+        "Each card has semantic-spine or canonical-hub link"
+      ]
+    },
+    {
+      "id": "WRITE_APPLY",
+      "title": "Write atomic linked cards",
+      "type": "task",
+      "requires": [
+        "WRITE_DRY_RUN"
+      ],
+      "content": "Use memex_retro for approved one-insight cards; link through semantic spines or canonical hubs rather than direct index sprawl.",
+      "acceptanceCriteria": [
+        "Every written card slug is recorded",
+        "No card is written without approved dry-run preview and dedup decision"
+      ]
     },
     {
       "id": "REPAIR",
       "title": "Repair topology and unresolved aliases",
       "type": "reasoning",
       "requires": [
-        "WRITE"
+        "WRITE_APPLY"
       ],
       "content": "Run scoped organize/doctor/topology scripts; create routing hubs for repeated unresolved concepts, but avoid maintenance-card PageRank bloat."
     },
     {
-      "id": "SYNC",
-      "title": "Sync and verify graph health",
+      "id": "PRE_SYNC_VALIDATE",
+      "title": "Validate topology delta and scoped files before sync",
       "type": "validation",
       "requires": [
         "REPAIR"
       ],
-      "content": "Run doctor/topology metrics and sync only scoped card/report files; never commit derived embeddings caches."
+      "content": "Check that topology did not worsen unexpectedly and no derived embeddings/generated caches are staged.",
+      "acceptanceCriteria": [
+        "Broken links non-increasing or justified",
+        "No derived embeddings staged",
+        "No new direct index links"
+      ]
+    },
+    {
+      "id": "SYNC_SCOPED_FILES",
+      "title": "Sync only approved card/report files",
+      "type": "task",
+      "requires": [
+        "PRE_SYNC_VALIDATE"
+      ],
+      "content": "Sync scoped card/report files and avoid derived cache artifacts.",
+      "acceptanceCriteria": [
+        "Only approved card/report files are synced",
+        "Derived embeddings and generated caches are excluded"
+      ]
+    },
+    {
+      "id": "POST_SYNC_VERIFY",
+      "title": "Verify graph health after sync",
+      "type": "validation",
+      "requires": [
+        "SYNC_SCOPED_FILES"
+      ],
+      "content": "Re-run doctor/topology and compare against baseline.",
+      "acceptanceCriteria": [
+        "Post-sync metrics and sync result are recorded"
+      ]
     },
     {
       "id": "BRIEF",
-      "title": "Generate next-session wakeup brief",
+      "title": "Generate next-session wakeup brief from validated artifacts",
       "type": "conclusion",
       "requires": [
-        "SYNC"
+        "POST_SYNC_VERIFY"
       ],
-      "content": "Emit compact AAAK-style context for future agents: decisions, gotchas, open loops, and relevant card slugs."
+      "content": "Emit compact AAAK-style context: decisions, gotchas, open loops, relevant card slugs, topology delta, and unresolved issues."
     }
   ],
   "edges": [
     {
-      "from": "RECALL",
-      "to": "WRITE",
+      "from": "BASELINE",
+      "to": "WRITE_APPLY",
       "type": "constrains",
-      "description": "new memory must be informed by existing graph context to avoid duplicates"
+      "description": "memory writes are judged against a before-state baseline"
     },
     {
-      "from": "REPAIR",
+      "from": "DEDUP",
+      "to": "WRITE_DRY_RUN",
+      "type": "constrains",
+      "description": "new cards require duplicate and contradiction decisions"
+    },
+    {
+      "from": "POST_SYNC_VERIFY",
       "to": "BRIEF",
       "type": "entails",
-      "description": "healthy graph topology improves future wakeup packet quality"
+      "description": "wakeups summarize validated graph state, not intentions"
     }
   ]
 }

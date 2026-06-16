@@ -3,13 +3,15 @@
   "sessionId": "app-pageindex-r2l-crosswalk",
   "constraints": [
     "Start with dry-run previews and explicit validation gates",
+    "Promote safety rules into executable DAG nodes, not prose-only constraints",
     "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
-    "Emit machine-readable artifacts agents can resume"
+    "Emit machine-readable artifacts agents can resume",
+    "Every high-risk write, sync, or release node must declare observable acceptance criteria"
   ],
   "metadata": {
     "slug": "pageindex-r2l-evidence-crosswalk",
-    "source": "history-and-memex-review",
-    "outcome": "A safe ingestion project that segments local PDFs, uploads/updates PageIndex documents with R2L, records document IDs and page anchors, and emits a vault-facing crosswalk for SAQ, LO, and MCQ grounding."
+    "source": "subagent-critical-evaluation",
+    "outcome": "Safe PageIndex ingestion with async R2L readiness, manifest validation, idempotency, and rollback/reconcile paths"
   },
   "nodes": [
     {
@@ -18,7 +20,20 @@
       "type": "premise",
       "content": "List local PDFs, existing remote docs, R2L status, folder IDs, and deletion/reupload constraints.",
       "acceptanceCriteria": [
-        "Dry-run inventory shows exact create/update/remove set"
+        "Dry-run inventory shows exact create/update/remove set",
+        "Source PDF checksums are recorded"
+      ]
+    },
+    {
+      "id": "VAULT_INDEX",
+      "title": "Index canonical vault SAQ, LO, and MCQ IDs",
+      "type": "premise",
+      "requires": [
+        "INVENTORY"
+      ],
+      "content": "Build the destination identifier inventory that the evidence crosswalk must target.",
+      "acceptanceCriteria": [
+        "Every target ID has canonical path and type"
       ]
     },
     {
@@ -31,15 +46,54 @@
       "content": "Use the PageIndex CLI segmentation plan to split high-density notes into stable topic PDFs with deterministic names and page ranges."
     },
     {
-      "id": "UPLOAD",
-      "title": "Upload or update with R2L enabled",
-      "type": "task",
+      "id": "SEGMENT_VALIDATE",
+      "title": "Validate segment names and page continuity",
+      "type": "validation",
       "requires": [
         "SEGMENT"
       ],
-      "content": "Perform one-document apply smoke test, then batch upload with R2L and folder placement; avoid destructive deletion unless API behavior is proven.",
+      "content": "Check deterministic names, duplicate collisions, page-range continuity, and source checksum linkage.",
       "acceptanceCriteria": [
-        "At least one minimal end-to-end upload/R2L run succeeds before batch apply"
+        "No duplicate segment names",
+        "Every segment maps to a source checksum and page range"
+      ]
+    },
+    {
+      "id": "UPLOAD_SMOKE_TEST",
+      "title": "Run one-document upload and R2L smoke test",
+      "type": "validation",
+      "requires": [
+        "SEGMENT_VALIDATE"
+      ],
+      "content": "Apply one minimal upload with R2L enabled before any batch remote mutation.",
+      "acceptanceCriteria": [
+        "One upload succeeds",
+        "R2L status can be observed or timeout is recorded"
+      ]
+    },
+    {
+      "id": "BATCH_UPLOAD",
+      "title": "Upload or update batch with R2L enabled",
+      "type": "task",
+      "requires": [
+        "UPLOAD_SMOKE_TEST"
+      ],
+      "content": "Batch upload with R2L and folder placement; avoid destructive deletion unless API behavior and rollback are proven.",
+      "acceptanceCriteria": [
+        "Dry-run target hash matches apply target hash",
+        "Every mutation has document or error record"
+      ]
+    },
+    {
+      "id": "POLL_R2L_READY",
+      "title": "Poll asynchronous R2L readiness",
+      "type": "validation",
+      "requires": [
+        "BATCH_UPLOAD"
+      ],
+      "content": "Poll PageIndex until R2L/OCR is ready or a bounded timeout produces retry/reconcile instructions.",
+      "acceptanceCriteria": [
+        "Every uploaded doc has ready, failed, or timed-out status"
       ]
     },
     {
@@ -47,41 +101,88 @@
       "title": "Capture PageIndex IDs, R2L state, and anchors",
       "type": "task",
       "requires": [
-        "UPLOAD"
+        "POLL_R2L_READY"
       ],
       "content": "Persist document IDs, fileName, folder, page ranges, and OCR/R2L readiness into a local manifest."
+    },
+    {
+      "id": "MANIFEST_VALIDATE",
+      "title": "Validate manifest and idempotency",
+      "type": "validation",
+      "requires": [
+        "CAPTURE"
+      ],
+      "content": "Check duplicate IDs, missing file names, stale folders, schema validity, and rerun idempotency.",
+      "acceptanceCriteria": [
+        "Manifest schema passes",
+        "Second dry-run predicts no unintended duplicates"
+      ]
     },
     {
       "id": "CROSSWALK",
       "title": "Build SAQ/LO/MCQ evidence crosswalk",
       "type": "reasoning",
       "requires": [
-        "CAPTURE"
+        "MANIFEST_VALIDATE",
+        "VAULT_INDEX"
       ],
       "content": "Map PageIndex documents and page anchors onto vault SAQs, learning objectives, MCQs, and future answer generation bundles."
+    },
+    {
+      "id": "CROSSWALK_VALIDATE",
+      "title": "Validate crosswalk quality thresholds",
+      "type": "validation",
+      "requires": [
+        "CROSSWALK"
+      ],
+      "content": "Check that every mapped item has document ID, page/range, source PDF checksum, confidence, and review status.",
+      "acceptanceCriteria": [
+        "Unmapped and low-confidence rows are reported"
+      ]
     },
     {
       "id": "AUDIT",
       "title": "Audit drift and unresolved sources",
       "type": "validation",
       "requires": [
-        "CROSSWALK"
+        "INVENTORY",
+        "CAPTURE",
+        "CROSSWALK_VALIDATE"
       ],
-      "content": "Detect missing file names, API remove failures, unmapped documents, duplicate IDs, and stale R2L statuses."
+      "content": "Detect missing file names, API remove failures, unmapped documents, duplicate IDs, stale R2L statuses, and changed remote state.",
+      "acceptanceCriteria": [
+        "Drift report lists missing names, duplicates, stale R2L state, and unresolved sources",
+        "Each drift item has reconcile, retry, or accept decision"
+      ]
+    },
+    {
+      "id": "ROLLBACK_OR_RECONCILE",
+      "title": "Rollback or reconcile partial remote state",
+      "type": "conclusion",
+      "requires": [
+        "AUDIT"
+      ],
+      "content": "If drift or partial upload is detected, emit exact rollback/reconcile commands instead of pretending success."
     }
   ],
   "edges": [
     {
       "from": "INVENTORY",
-      "to": "UPLOAD",
+      "to": "BATCH_UPLOAD",
       "type": "constrains",
-      "description": "remote mutation must be preceded by a dry-run exact target set"
+      "description": "remote mutation must match the dry-run target hash"
     },
     {
-      "from": "CAPTURE",
+      "from": "POLL_R2L_READY",
+      "to": "CAPTURE",
+      "type": "constrains",
+      "description": "anchors are captured only after ready/failed/timed-out state is known"
+    },
+    {
+      "from": "MANIFEST_VALIDATE",
       "to": "CROSSWALK",
       "type": "entails",
-      "description": "stable document IDs unlock reproducible citation anchors"
+      "description": "valid manifests enable reproducible citation anchors"
     }
   ]
 }

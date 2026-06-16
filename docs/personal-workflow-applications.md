@@ -2,6 +2,8 @@
 
 This guide turns prior session history and durable memory into five concrete projects where the AoT CLI is more than a note-taking tool. Each project has a runnable DAG example under `examples/personal-workflows/` and is intended to be run first with `--dryRun`, so agents can inspect planned AoT, br/beads, and Linear writes before mutating anything.
 
+The DAGs were later stress-tested by bounded read-only subagents. The critique synthesis and self-improvement rules are captured in [`docs/critical-evaluation-self-improvement.md`](critical-evaluation-self-improvement.md), and the JSON examples now promote the reviewers' main finding: safety and validation rules should be explicit DAG gates, not prose-only constraints.
+
 ## Evidence base
 
 The applications were selected from repeated patterns in session history and memory:

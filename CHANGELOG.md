@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Optional Linear integration for DAG nodes/relations with dry-run preview, Git context capture, idempotent `AoT external ref: aot:<session>:<node>` markers, stdin descriptions, and structured error payloads.
 - PEX retrieval seeding commands for exam-oriented atom generation.
 - Personal workflow application guide plus runnable DAG examples for ANZCA SAQ synthesis, PageIndex/R2L evidence crosswalks, MAK95 MCQ five-gate closure, memex graph maintenance, and agent-tooling release orchestration.
+- Critical-evaluation synthesis documenting subagent reviewer findings and self-improvement rules for turning prose-only safety guidance into executable DAG gates.
 
 ### Changed
 
@@ -24,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Tests
 
-- 201 tests passing across 15 test files, including CLI integration, DAG relation semantics, dry-run tracker previews, validation payloads, personal workflow DAG examples, external refs, and structured external-command error payloads.
+- 211 tests passing across 15 test files, including CLI integration, DAG relation semantics, dry-run tracker previews, validation payloads, personal workflow DAG examples, subagent-derived safety gate regressions, external refs, and structured external-command error payloads.
 
 ## [3.0.0] — 2026-04-13
 

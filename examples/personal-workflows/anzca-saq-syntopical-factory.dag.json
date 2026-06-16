@@ -3,13 +3,15 @@
   "sessionId": "app-anzca-saq-factory",
   "constraints": [
     "Start with dry-run previews and explicit validation gates",
+    "Promote safety rules into executable DAG nodes, not prose-only constraints",
     "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
-    "Emit machine-readable artifacts agents can resume"
+    "Emit machine-readable artifacts agents can resume",
+    "Every high-risk write, sync, or release node must declare observable acceptance criteria"
   ],
   "metadata": {
     "slug": "anzca-saq-syntopical-factory",
-    "source": "history-and-memex-review",
-    "outcome": "A repeatable command workflow that turns a batch of SAQ IDs into examiner-fit markdown answer sets with explicit evidence provenance, route/audit metadata, validation logs, and an optional br/bv project graph."
+    "source": "subagent-critical-evaluation",
+    "outcome": "Examiner-fit answer sets with explicit dry-run, evidence, citation, regression, and replay gates"
   },
   "nodes": [
     {
@@ -18,8 +20,21 @@
       "type": "premise",
       "content": "Input AP/CP question IDs are resolved to canonical MAK95 note paths, existing model-answer destinations, and validator expectations.",
       "acceptanceCriteria": [
-        "Every requested SAQ maps to exactly one source note",
+        "Every requested SAQ maps to exactly one source note or emits an ambiguity report",
         "Output paths follow existing model-answer-set conventions"
+      ]
+    },
+    {
+      "id": "DRY_RUN_PREVIEW",
+      "title": "Inspect non-mutating project preview",
+      "type": "validation",
+      "requires": [
+        "SCOPE"
+      ],
+      "content": "Run the DAG in dry-run mode and verify planned AoT/br/Linear actions are non-mutating before retrieval or writing.",
+      "acceptanceCriteria": [
+        "Dry-run output has schemaVersion and runId",
+        "No vault, tracker, or remote mutation occurs"
       ]
     },
     {
@@ -27,7 +42,7 @@
       "title": "Retrieve PEX, PageIndex, and vault evidence",
       "type": "task",
       "requires": [
-        "SCOPE"
+        "DRY_RUN_PREVIEW"
       ],
       "content": "Run PEX scope/examiner/brief/layers, PageIndex source orientation, Enzyme/vault retrieval, and local textbook import lookups.",
       "acceptanceCriteria": [
@@ -35,11 +50,23 @@
       ]
     },
     {
+      "id": "EVIDENCE_MANIFEST",
+      "title": "Build machine-readable evidence manifest",
+      "type": "task",
+      "requires": [
+        "RETRIEVE"
+      ],
+      "content": "Persist source paths, PageIndex anchors, PEX commands, retrieval timestamps, and confidence/review status.",
+      "acceptanceCriteria": [
+        "Manifest includes source path, command, anchor, confidence, and review status for each evidence item"
+      ]
+    },
+    {
       "id": "ROUTE",
       "title": "Derive answer route and mark allocation",
       "type": "reasoning",
       "requires": [
-        "RETRIEVE"
+        "EVIDENCE_MANIFEST"
       ],
       "content": "Convert evidence into route primitives, mark budget, examiner traps, and 8-minute answer shape.",
       "acceptanceCriteria": [
@@ -53,43 +80,116 @@
       "requires": [
         "ROUTE"
       ],
-      "content": "Write model-answer-set markdown with source wikilinks, BORROW, answer, examiner-fitness audit, defect class, regression note, and reviewer sign-off."
+      "content": "Write model-answer-set markdown with source wikilinks, BORROW, answer, examiner-fitness audit, defect class, regression note, and reviewer sign-off.",
+      "acceptanceCriteria": [
+        "Every claim has source support or is marked as synthesis",
+        "Answer fits 8-minute shape",
+        "Mark allocation is visible",
+        "Obsidian wikilinks are preserved"
+      ]
     },
     {
-      "id": "VALIDATE",
-      "title": "Run validator and coverage audit",
+      "id": "CITATION_AUDIT",
+      "title": "Audit citations, wikilinks, and unsupported claims",
       "type": "validation",
       "requires": [
         "WRITE"
       ],
-      "content": "Run the MAK95 answer validator and a citation/link checker; only then optionally sync AoT/br and run bv triage.",
+      "content": "Check source anchors, Obsidian wikilinks, hallucinated citations, and unsupported answer claims.",
+      "acceptanceCriteria": [
+        "No broken source anchors",
+        "No unresolved wikilinks",
+        "Unsupported claims are fixed or flagged"
+      ]
+    },
+    {
+      "id": "VALIDATE",
+      "title": "Run answer validator and coverage audit",
+      "type": "validation",
+      "requires": [
+        "CITATION_AUDIT"
+      ],
+      "content": "Run the MAK95 answer validator and coverage checks before any tracker sync.",
       "acceptanceCriteria": [
         "Validator passes",
         "No source phase files or coverage ledgers are mutated unless explicitly requested"
       ]
     },
     {
-      "id": "PROVENANCE",
-      "title": "Preserve non-polluting reasoning graph",
-      "type": "conclusion",
+      "id": "REGRESSION_CHECK",
+      "title": "Compare against known good answer patterns",
+      "type": "validation",
       "requires": [
         "VALIDATE"
       ],
-      "content": "Export AoT atoms or dry-run br plan as an audit trail without polluting issue trackers by default."
+      "content": "Compare structure and examiner-fitness signals against prior validated model-answer sets.",
+      "acceptanceCriteria": [
+        "Regression comparison is recorded",
+        "Material deviations are justified"
+      ]
+    },
+    {
+      "id": "REVIEW_SIGNOFF",
+      "title": "Perform independent reviewer sign-off",
+      "type": "verification",
+      "requires": [
+        "REGRESSION_CHECK"
+      ],
+      "content": "Separate generation from educational-quality review and record reviewer verdict.",
+      "acceptanceCriteria": [
+        "Reviewer verdict is pass, revise, or reject with reasons"
+      ]
+    },
+    {
+      "id": "REPLAY_GATE",
+      "title": "Approve replay or tracker sync",
+      "type": "verification",
+      "requires": [
+        "REVIEW_SIGNOFF"
+      ],
+      "content": "Only after all validation gates pass may the agent replay without dry-run or sync br/Linear.",
+      "acceptanceCriteria": [
+        "Human or policy approval is explicit",
+        "Dry-run target set is unchanged"
+      ]
+    },
+    {
+      "id": "PROVENANCE",
+      "title": "Preserve reasoning graph and failed-run diagnostics",
+      "type": "conclusion",
+      "requires": [
+        "REPLAY_GATE"
+      ],
+      "content": "Export AoT atoms, dry-run/replay outputs, validation logs, and failed-run diagnostics as audit trail.",
+      "acceptanceCriteria": [
+        "Includes run ID, source paths, command, validator status, failed-run diagnostics, and artifact hashes"
+      ]
     }
   ],
   "edges": [
     {
+      "from": "SCOPE",
+      "to": "RETRIEVE",
+      "type": "constrains",
+      "description": "canonical path resolution constrains evidence retrieval"
+    },
+    {
+      "from": "EVIDENCE_MANIFEST",
+      "to": "ROUTE",
+      "type": "constrains",
+      "description": "answer route must be anchored in recorded evidence"
+    },
+    {
       "from": "ROUTE",
       "to": "WRITE",
       "type": "constrains",
-      "description": "model answer content must expose route and audit signals, not just prose"
+      "description": "mark allocation and examiner traps constrain answer shape"
     },
     {
       "from": "VALIDATE",
-      "to": "PROVENANCE",
+      "to": "REPLAY_GATE",
       "type": "entails",
-      "description": "only validated answer batches become durable audit examples"
+      "description": "only passing validation permits replay or external sync"
     }
   ]
 }

@@ -3,13 +3,16 @@
   "sessionId": "app-mcq-five-gate-closure",
   "constraints": [
     "Start with dry-run previews and explicit validation gates",
+    "Promote safety rules into executable DAG nodes, not prose-only constraints",
     "Preserve user data surfaces: do not mutate vaults, trackers, or remote systems until dry-run plans pass",
-    "Emit machine-readable artifacts agents can resume"
+    "Emit machine-readable artifacts agents can resume",
+    "Every high-risk write, sync, or release node must declare observable acceptance criteria",
+    "Preserve stable row identity across markdown, CSV, ledger, batch JSON, result JSON, and merge dry-run"
   ],
   "metadata": {
     "slug": "mak95-mcq-five-gate-closure",
-    "source": "history-and-memex-review",
-    "outcome": "A controlled MCQ workflow where every row is either repaired, grounded, deduplicated, clustered, or terminal/manual with a machine-readable reason, then merged only after validator success."
+    "source": "subagent-critical-evaluation",
+    "outcome": "Identity-preserving MCQ closure with route-specific branches and bounded validation retries"
   },
   "nodes": [
     {
@@ -19,31 +22,97 @@
       "content": "Read MCQ markdown/CSV sources, latest five-gate ledger, batch JSON, assigned result path, and validator command."
     },
     {
+      "id": "ROW_INVENTORY",
+      "title": "Establish stable row identity inventory",
+      "type": "premise",
+      "requires": [
+        "LOAD"
+      ],
+      "content": "Record every original row ID and expected one-output-per-input-row closure contract.",
+      "acceptanceCriteria": [
+        "Every batch row has stable ID, source, and expected output slot"
+      ]
+    },
+    {
+      "id": "SCHEMA_LOCK",
+      "title": "Lock result schema and gate vocabulary",
+      "type": "validation",
+      "requires": [
+        "ROW_INVENTORY"
+      ],
+      "content": "Define valid gate enum, closure statuses, terminal/manual reason codes, and validator command provenance.",
+      "acceptanceCriteria": [
+        "Gate taxonomy is exhaustive, ordered, and machine-readable"
+      ]
+    },
+    {
       "id": "CLUSTER",
       "title": "Deduplicate and cluster stems/options",
       "type": "reasoning",
       "requires": [
-        "LOAD"
+        "SCHEMA_LOCK"
       ],
       "content": "Normalize stems/options, cluster keyed-answer variants, and group by subtopic/frontmatter plus semantic near-duplicates."
+    },
+    {
+      "id": "CLUSTER_AUDIT",
+      "title": "Audit overclustering and keyed-answer conflicts",
+      "type": "validation",
+      "requires": [
+        "CLUSTER"
+      ],
+      "content": "Compute singleton count, duplicate groups, keyed-answer conflicts, and suspicious merges.",
+      "acceptanceCriteria": [
+        "Keyed-answer conflicts are split or flagged"
+      ]
+    },
+    {
+      "id": "EVIDENCE_BANK",
+      "title": "Build PageIndex citation bank per cluster",
+      "type": "task",
+      "requires": [
+        "CLUSTER_AUDIT"
+      ],
+      "content": "Collect PageIndex anchors and local evidence banks for clusters likely to need grounding.",
+      "acceptanceCriteria": [
+        "Citation anchors include document ID/page and review status"
+      ]
     },
     {
       "id": "GATE",
       "title": "Route each row through five gates",
       "type": "task",
       "requires": [
-        "CLUSTER"
+        "EVIDENCE_BANK"
       ],
-      "content": "For each MCQ row, classify as repairable, needs citation-bank grounding, duplicate merge, terminal placeholder, or manual review."
+      "content": "For each MCQ row, classify as repairable, needs citation-bank grounding, duplicate merge, terminal placeholder, or manual review.",
+      "acceptanceCriteria": [
+        "Every row receives exactly one preliminary gate route",
+        "Rows needing manual or terminal closure include controlled reason code"
+      ]
     },
     {
-      "id": "GROUND",
-      "title": "Ground option explanations with PageIndex anchors",
-      "type": "task",
+      "id": "ROUTE_AUDIT",
+      "title": "Audit route completeness and reason codes",
+      "type": "validation",
       "requires": [
         "GATE"
       ],
-      "content": "Prefer PageIndex page anchors and local evidence banks over generic web citations; reuse cluster-level citation banks for speed."
+      "content": "Verify exactly one closure route per row and controlled reasons for terminal/manual rows.",
+      "acceptanceCriteria": [
+        "No missing rows",
+        "No multi-route rows",
+        "All terminal/manual reasons use controlled vocabulary"
+      ]
+    },
+    {
+      "id": "GROUND",
+      "title": "Ground only rows classified as needs-grounding",
+      "type": "task",
+      "requires": [
+        "ROUTE_AUDIT"
+      ],
+      "content": "Prefer PageIndex page anchors and local evidence banks over generic web citations; do not ground duplicate/terminal/manual-only rows unnecessarily."
     },
     {
       "id": "RESULT",
@@ -52,34 +121,68 @@
       "requires": [
         "GROUND"
       ],
-      "content": "Write the assigned result file without editing ledgers or canonical CSVs; include every original batch row or a valid terminal/manual status."
+      "content": "Write the assigned result file without editing ledgers or canonical CSVs; include every original batch row or a valid terminal/manual status.",
+      "acceptanceCriteria": [
+        "Exactly one output record per input row",
+        "No canonical files modified"
+      ]
     },
     {
       "id": "VALIDATE",
-      "title": "Run validator and merge dry-run",
+      "title": "Run validator",
       "type": "validation",
       "requires": [
         "RESULT"
       ],
-      "content": "Run the supplied validator, then dry-run merge/fast-closure before any canonical mutation.",
+      "content": "Run the supplied five-gate result validator and capture errors as structured reroute tasks.",
       "acceptanceCriteria": [
-        "No missing batch rows",
-        "Terminal rows include explicit reason and gate"
+        "Validator passes or emits bounded retry plan"
+      ]
+    },
+    {
+      "id": "RETRY_OR_ESCALATE",
+      "title": "Bounded retry or terminal escalation",
+      "type": "verification",
+      "requires": [
+        "VALIDATE"
+      ],
+      "content": "Validator errors feed targeted reroute/repair with max attempts, then terminal/manual escalation.",
+      "acceptanceCriteria": [
+        "Retry count and terminal escalation reasons are recorded"
+      ]
+    },
+    {
+      "id": "MERGE_DRY_RUN",
+      "title": "Run merge dry-run only after validation",
+      "type": "validation",
+      "requires": [
+        "RETRY_OR_ESCALATE"
+      ],
+      "content": "Dry-run merge/fast-closure before any canonical mutation.",
+      "acceptanceCriteria": [
+        "Merge dry-run is clean",
+        "No ledger mutation occurs before approval"
       ]
     }
   ],
   "edges": [
     {
-      "from": "LOAD",
+      "from": "ROW_INVENTORY",
       "to": "RESULT",
       "type": "constrains",
-      "description": "bounded workers must touch only the assigned result artifact"
+      "description": "every result must preserve original row identity"
+    },
+    {
+      "from": "SCHEMA_LOCK",
+      "to": "GATE",
+      "type": "constrains",
+      "description": "gating uses controlled taxonomy and precedence"
     },
     {
       "from": "VALIDATE",
-      "to": "GATE",
+      "to": "RETRY_OR_ESCALATE",
       "type": "entails",
-      "description": "validator errors feed the next gate-routing pass"
+      "description": "validator failures become bounded repair tasks or terminal escalation"
     }
   ]
 }
