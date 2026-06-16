@@ -379,7 +379,7 @@ function linearRelationExists(command: string, from: string, to: string, relatio
 
 export function syncDagToLinear(dag: NormalizedDag, options: LinearDagOptions = {}): Record<string, unknown> {
   const command = linearCommand(options.command);
-  if (!linearCommandAvailable(command)) return { status: 'skipped', reason: 'linear-cli command not found' };
+  if (!options.dryRun && !linearCommandAvailable(command)) return { status: 'skipped', reason: 'linear-cli command not found' };
 
   const issueByNode = new Map<string, string>();
   const created: unknown[] = [];

@@ -20,6 +20,13 @@ export interface ExternalCommandErrorPayload {
   stdoutHint?: string;
 }
 
+export interface ValidationErrorPayload {
+  status: 'error';
+  code: 'validation_error';
+  message: string;
+  issues: Array<{ code?: string; path: Array<string | number>; message: string }>;
+}
+
 export class ExternalCommandError extends Error {
   public readonly payload: ExternalCommandErrorPayload;
 
@@ -48,8 +55,26 @@ export function commandErrorPayload(result: CommandResult, message?: string): Ex
   };
 }
 
-export function errorToPayload(error: unknown): ExternalCommandErrorPayload | { status: 'error'; code: 'unexpected_error'; message: string } {
+function validationIssues(error: unknown): ValidationErrorPayload['issues'] | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const issues = (error as { issues?: unknown }).issues;
+  if (!Array.isArray(issues)) return undefined;
+  return issues.map((issue) => {
+    const record = issue && typeof issue === 'object' ? issue as Record<string, unknown> : {};
+    const rawPath = Array.isArray(record.path) ? record.path : [];
+    const path = rawPath.filter((part): part is string | number => typeof part === 'string' || typeof part === 'number');
+    return {
+      code: typeof record.code === 'string' ? record.code : undefined,
+      path,
+      message: typeof record.message === 'string' ? record.message : String(record.message ?? issue),
+    };
+  });
+}
+
+export function errorToPayload(error: unknown): ExternalCommandErrorPayload | ValidationErrorPayload | { status: 'error'; code: 'unexpected_error'; message: string } {
   if (error instanceof ExternalCommandError) return error.payload;
+  const issues = validationIssues(error);
+  if (issues) return { status: 'error', code: 'validation_error', message: 'Input validation failed', issues };
   return { status: 'error', code: 'unexpected_error', message: error instanceof Error ? error.message : String(error) };
 }
 

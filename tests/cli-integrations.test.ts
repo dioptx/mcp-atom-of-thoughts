@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeBrSync } from '../src/integrations/br.js';
+import { z } from 'incur';
+import { summarizeBrSync, syncGraphToBr } from '../src/integrations/br.js';
 import { summarizeBvRobot } from '../src/integrations/bv.js';
-import { buildDagAtoms, buildDagGraph, normalizeDag, summarizeDag } from '../src/integrations/dag.js';
+import { buildDagAtoms, buildDagGraph, normalizeDag, summarizeDag, syncDagToLinear } from '../src/integrations/dag.js';
 import { buildPexAtoms, normalizePexTarget, pexSourcegraphArgs } from '../src/integrations/pex.js';
 import { commandErrorPayload, ExternalCommandError, errorToPayload, type CommandResult } from '../src/integrations/shell-json.js';
 
@@ -134,6 +135,63 @@ describe('CLI integration helpers', () => {
       exitCode: 7,
       message: 'dedupe failed',
       stderrHint: 'network unavailable',
+    });
+  });
+
+  it('previews br sync without invoking external br during dry-run', () => {
+    const result = syncGraphToBr({
+      title: 'Dry run graph',
+      nodes: [
+        { id: 'A', type: 'premise', content: 'Requirement', confidence: 0.9, depth: 0, title: 'Requirement', externalRef: 'aot:dry:A' },
+        { id: 'B', type: 'reasoning', content: 'Implementation', confidence: 0.8, depth: 1, title: 'Implementation', externalRef: 'aot:dry:B' },
+      ],
+      links: [{ source: 'A', target: 'B', relation: 'depends_on', blocking: true }],
+    }, 'dry', { dryRun: true, command: 'definitely-not-installed-br' });
+
+    expect(result).toMatchObject({ sessionId: 'dry', nodeCount: 2, linkCount: 1, dryRun: true, workspace: { status: 'dry-run' } });
+    expect(result.created).toEqual(expect.arrayContaining([
+      expect.objectContaining({ atomId: 'A', issueId: 'DRY:A', externalRef: 'aot:dry:A', dryRun: true }),
+      expect.objectContaining({ atomId: 'B', issueId: 'DRY:B', externalRef: 'aot:dry:B', dryRun: true }),
+    ]));
+    expect(result.dependencies).toEqual([
+      expect.objectContaining({ from: 'A', to: 'B', relation: 'depends_on', type: 'blocks', dryRun: true, dependent: 'DRY:B', dependency: 'DRY:A' }),
+    ]);
+  });
+
+  it('previews Linear issue and relation commands during dry-run without requiring linear-cli', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-dry',
+      nodes: [
+        { id: 'A', title: 'Requirement' },
+        { id: 'B', title: 'Implementation', requires: ['A'] },
+      ],
+    });
+
+    const result = syncDagToLinear(dag, { dryRun: true, command: 'definitely-not-installed-linear' });
+
+    expect(result).toMatchObject({ status: 'ok', dryRun: true });
+    expect(result.created).toEqual(expect.arrayContaining([
+      expect.objectContaining({ nodeId: 'A', externalRef: 'aot:linear-dry:A', planned: expect.arrayContaining(['definitely-not-installed-linear', 'issues', 'create', 'Requirement']) }),
+      expect.objectContaining({ nodeId: 'B', externalRef: 'aot:linear-dry:B', planned: expect.arrayContaining(['definitely-not-installed-linear', 'issues', 'create', 'Implementation']) }),
+    ]));
+    expect(result.relations).toEqual([
+      expect.objectContaining({ from: 'A', to: 'B', relation: 'blocks', planned: expect.arrayContaining(['definitely-not-installed-linear', 'relations', 'add']) }),
+    ]);
+  });
+
+  it('formats validation failures as structured agent-readable payloads', () => {
+    let error: unknown;
+    try {
+      z.object({ nodes: z.array(z.object({ id: z.string() })).min(1) }).parse({ nodes: [{ title: 'missing id' }] });
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(errorToPayload(error)).toMatchObject({
+      status: 'error',
+      code: 'validation_error',
+      message: 'Input validation failed',
+      issues: [expect.objectContaining({ path: ['nodes', 0, 'id'], message: expect.stringContaining('expected string') })],
     });
   });
 });

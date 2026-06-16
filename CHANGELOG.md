@@ -17,11 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 
 - Pipeline command outputs now include `schemaVersion`, `runId`, `generatedAt`, and `pipeline` for agent-safe auditing and replay.
+- `aot dag --dryRun` now produces offline br/beads and Linear previews without requiring those CLIs to be installed or shelling out to trackers.
+- CLI validation failures now return structured `validation_error` payloads with issue paths for agent repair loops.
 - Graph export types support rich node/link metadata used by br/beads and DAG adapters.
 
 ### Tests
 
-- 191 tests passing across 14 test files, including CLI integration, DAG relation semantics, external refs, and structured external-command error payloads.
+- 194 tests passing across 14 test files, including CLI integration, DAG relation semantics, dry-run tracker previews, validation payloads, external refs, and structured external-command error payloads.
 
 ## [3.0.0] — 2026-04-13
 

@@ -114,7 +114,7 @@ export function syncGraphToBr(graph: GraphData, sessionId: string, options: BrSy
     const labels = Array.isArray(node.labels) && node.labels.length > 0
       ? node.labels.join(',')
       : `aot,atom,${node.type}`;
-    const result = runBr([
+    const createArgs = [
       'create',
       node.title ?? `AoT ${node.id}: ${node.type}`,
       '--type', 'task',
@@ -123,9 +123,15 @@ export function syncGraphToBr(graph: GraphData, sessionId: string, options: BrSy
       '--description', description,
       '--external-ref', ref,
       ...(options.dryRun ? ['--dry-run'] : []),
-    ], options) as Record<string, unknown>;
+    ];
+    if (options.dryRun) {
+      const issueId = `DRY:${node.id}`;
+      issueByAtom.set(node.id, issueId);
+      created.push({ atomId: node.id, issueId, externalRef: ref, dryRun: true, planned: [brCommand(options), ...brGlobalArgs(options), ...createArgs] });
+      continue;
+    }
+    const result = runBr(createArgs, options) as Record<string, unknown>;
     if (result.id) issueByAtom.set(node.id, String(result.id));
-    else if (options.dryRun) issueByAtom.set(node.id, `DRY:${node.id}`);
     created.push({ atomId: node.id, issueId: result.id, externalRef: ref, dryRun: Boolean(options.dryRun) });
   }
 
