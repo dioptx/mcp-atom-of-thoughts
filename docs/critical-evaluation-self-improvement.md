@@ -2,6 +2,8 @@
 
 This document records a subagent-orchestrated critique of the five personal AoT CLI applications in `docs/personal-workflow-applications.md` and `examples/personal-workflows/`.
 
+A follow-up pass focused on machine enforceability, operational adoption, and risk/reversibility is documented in [`docs/second-pass-self-improvement.md`](second-pass-self-improvement.md). That pass added typed safety metadata, a dry-run harness, and tests that make the critique more enforceable.
+
 ## Orchestration method
 
 I attempted swarm-based parallel review first, but the active swarm had an existing coordinator in another session, so I switched to bounded read-only subagents. Each subagent reviewed one application artifact and returned: strengths, hidden assumptions, missing DAG dependencies, failure modes, validation gaps, refinements, and self-improvement lessons. The synthesis below converts those critiques into executable DAG refinements rather than leaving them as prose.

@@ -59,7 +59,31 @@
       "content": "Persist source paths, PageIndex anchors, PEX commands, retrieval timestamps, and confidence/review status.",
       "acceptanceCriteria": [
         "Manifest includes source path, command, anchor, confidence, and review status for each evidence item"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/evidence_manifest-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/anzca-saq-syntopical-factory.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/evidence_manifest-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "ROUTE",
@@ -86,7 +110,31 @@
         "Answer fits 8-minute shape",
         "Mark allocation is visible",
         "Obsidian wikilinks are preserved"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/write-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/anzca-saq-syntopical-factory.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/write-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "CITATION_AUDIT",
@@ -100,7 +148,31 @@
         "No broken source anchors",
         "No unresolved wikilinks",
         "Unsupported claims are fixed or flagged"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/citation_audit-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/anzca-saq-syntopical-factory.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/citation_audit-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VALIDATE",
@@ -113,7 +185,31 @@
       "acceptanceCriteria": [
         "Validator passes",
         "No source phase files or coverage ledgers are mutated unless explicitly requested"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/anzca-saq-syntopical-factory.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "REGRESSION_CHECK",
@@ -151,7 +247,31 @@
       "acceptanceCriteria": [
         "Human or policy approval is explicit",
         "Dry-run target set is unchanged"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/replay_gate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/anzca-saq-syntopical-factory.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/anzca-saq-syntopical-factory/{runId}/replay_gate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "PROVENANCE",

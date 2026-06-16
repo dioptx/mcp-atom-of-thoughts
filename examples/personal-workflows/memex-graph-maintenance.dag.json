@@ -34,7 +34,32 @@
       "content": "Run doctor/topology/dirty-state checks before any new card creation.",
       "acceptanceCriteria": [
         "Baseline includes orphan, broken-link, hub-degree, dirty-state, and staged-file metrics"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/baseline-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/baseline-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "OBSERVE",
@@ -68,7 +93,32 @@
       "acceptanceCriteria": [
         "No direct [[index]] sprawl",
         "Each card has semantic-spine or canonical-hub link"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/write_dry_run-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/write_dry_run-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "WRITE_APPLY",
@@ -81,7 +131,32 @@
       "acceptanceCriteria": [
         "Every written card slug is recorded",
         "No card is written without approved dry-run preview and dedup decision"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/write_apply-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/write_apply-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "REPAIR",
@@ -104,7 +179,32 @@
         "Broken links non-increasing or justified",
         "No derived embeddings staged",
         "No new direct index links"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/pre_sync_validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/pre_sync_validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "SYNC_SCOPED_FILES",
@@ -117,7 +217,32 @@
       "acceptanceCriteria": [
         "Only approved card/report files are synced",
         "Derived embeddings and generated caches are excluded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/sync_scoped_files-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/sync_scoped_files-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "POST_SYNC_VERIFY",
@@ -129,7 +254,32 @@
       "content": "Re-run doctor/topology and compare against baseline.",
       "acceptanceCriteria": [
         "Post-sync metrics and sync result are recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "memex",
+            "filesystem",
+            "git-sync",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/post_sync_verify-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/memex-graph-maintenance.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/memex-graph-maintenance/{runId}/post_sync_verify-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "BRIEF",

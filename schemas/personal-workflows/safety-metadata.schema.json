@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Zpankz/aot/schemas/personal-workflows/safety-metadata.schema.json",
+  "title": "AoT Personal Workflow Safety Metadata",
+  "type": "object",
+  "required": ["riskLevel", "mutationSurface", "dryRunRequired", "requiresApproval", "checkpointArtifact", "rollbackPlan", "privacyScan", "maxRetries", "timeoutSeconds", "abortOnFailure"],
+  "properties": {
+    "riskLevel": { "enum": ["low", "medium", "high", "critical"] },
+    "mutationSurface": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "dryRunRequired": { "type": "boolean" },
+    "requiresApproval": { "type": "boolean" },
+    "checkpointArtifact": { "type": "string", "minLength": 1 },
+    "rollbackPlan": { "type": "string", "minLength": 1 },
+    "privacyScan": { "type": "boolean" },
+    "maxRetries": { "type": "integer", "minimum": 0, "maximum": 10 },
+    "timeoutSeconds": { "type": "integer", "minimum": 1 },
+    "abortOnFailure": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

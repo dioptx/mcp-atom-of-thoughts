@@ -89,7 +89,30 @@
         "APP4",
         "APP5"
       ],
-      "content": "Run aot dag --dryRun over every example and test parse/normalize/render behavior."
+      "content": "Run aot dag --dryRun over every example and test parse/normalize/render behavior.",
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "filesystem",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/portfolio-meta/{runId}/validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/portfolio-meta.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/portfolio-meta/{runId}/validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "DOC",

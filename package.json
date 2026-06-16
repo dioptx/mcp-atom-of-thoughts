@@ -12,6 +12,7 @@
     "build": "tsc && chmod 755 build/index.js build/cli.js && cp assets/d3.v7.min.js build/",
     "test": "vitest run",
     "test:watch": "vitest",
+    "examples:dry-run": "node scripts/run-personal-workflows.mjs --all --dry-run",
     "prepublishOnly": "npm run build"
   },
   "files": [

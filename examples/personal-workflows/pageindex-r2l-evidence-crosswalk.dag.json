@@ -22,7 +22,32 @@
       "acceptanceCriteria": [
         "Dry-run inventory shows exact create/update/remove set",
         "Source PDF checksums are recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/inventory-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/inventory-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VAULT_INDEX",
@@ -56,7 +81,32 @@
       "acceptanceCriteria": [
         "No duplicate segment names",
         "Every segment maps to a source checksum and page range"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/segment_validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/segment_validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "UPLOAD_SMOKE_TEST",
@@ -69,7 +119,32 @@
       "acceptanceCriteria": [
         "One upload succeeds",
         "R2L status can be observed or timeout is recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/upload_smoke_test-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/upload_smoke_test-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "BATCH_UPLOAD",
@@ -82,7 +157,32 @@
       "acceptanceCriteria": [
         "Dry-run target hash matches apply target hash",
         "Every mutation has document or error record"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/batch_upload-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/batch_upload-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "POLL_R2L_READY",
@@ -94,7 +194,32 @@
       "content": "Poll PageIndex until R2L/OCR is ready or a bounded timeout produces retry/reconcile instructions.",
       "acceptanceCriteria": [
         "Every uploaded doc has ready, failed, or timed-out status"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/poll_r2l_ready-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 3,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/poll_r2l_ready-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "CAPTURE",
@@ -116,7 +241,32 @@
       "acceptanceCriteria": [
         "Manifest schema passes",
         "Second dry-run predicts no unintended duplicates"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/manifest_validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/manifest_validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "CROSSWALK",
@@ -138,7 +288,32 @@
       "content": "Check that every mapped item has document ID, page/range, source PDF checksum, confidence, and review status.",
       "acceptanceCriteria": [
         "Unmapped and low-confidence rows are reported"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/crosswalk_validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/crosswalk_validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "AUDIT",
@@ -153,7 +328,32 @@
       "acceptanceCriteria": [
         "Drift report lists missing names, duplicates, stale R2L state, and unresolved sources",
         "Each drift item has reconcile, retry, or accept decision"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/audit-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/audit-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "ROLLBACK_OR_RECONCILE",
@@ -162,7 +362,36 @@
       "requires": [
         "AUDIT"
       ],
-      "content": "If drift or partial upload is detected, emit exact rollback/reconcile commands instead of pretending success."
+      "content": "If drift or partial upload is detected, emit exact rollback/reconcile commands instead of pretending success.",
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "pageindex",
+            "filesystem",
+            "mak95-vault",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/rollback_or_reconcile-checkpoint.json",
+          "rollbackPlan": "Execute this node as the rollback/reconcile plan from the partial-failure manifest.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/pageindex-r2l-evidence-crosswalk.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/pageindex-r2l-evidence-crosswalk/{runId}/rollback_or_reconcile-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      },
+      "acceptanceCriteria": [
+        "Partial-failure manifest identifies affected PageIndex IDs and local artifacts",
+        "Each item has rollback, reconcile, retry, or not-reversible decision"
+      ]
     }
   ],
   "edges": [

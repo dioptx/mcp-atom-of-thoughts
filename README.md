@@ -177,7 +177,13 @@ Safety contract:
 - Linear descriptions are sent on stdin with `--description -`, so markdown never leaks into shell argv.
 - External command failures return structured `{status:"error", code, command, args, exitCode, stderrHint}` payloads.
 
-For larger real-world patterns, see [`docs/personal-workflow-applications.md`](docs/personal-workflow-applications.md), the critique synthesis in [`docs/critical-evaluation-self-improvement.md`](docs/critical-evaluation-self-improvement.md), and the runnable DAGs under [`examples/personal-workflows/`](examples/personal-workflows/). They show how to apply the CLI homoiconically to ANZCA SAQ synthesis, PageIndex/R2L ingestion, MAK95 MCQ closure, memex graph maintenance, and agent-tooling releases.
+For larger real-world patterns, see [`docs/personal-workflow-applications.md`](docs/personal-workflow-applications.md), the critique synthesis in [`docs/critical-evaluation-self-improvement.md`](docs/critical-evaluation-self-improvement.md), the second-pass safety harness in [`docs/second-pass-self-improvement.md`](docs/second-pass-self-improvement.md), and the runnable DAGs under [`examples/personal-workflows/`](examples/personal-workflows/). They show how to apply the CLI homoiconically to ANZCA SAQ synthesis, PageIndex/R2L ingestion, MAK95 MCQ closure, memex graph maintenance, and agent-tooling releases.
+
+After building, run all personal workflow previews and persist resumable envelopes with:
+
+```bash
+npm run examples:dry-run
+```
 
 ### Visualization
 

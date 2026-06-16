@@ -31,7 +31,32 @@
       "content": "Record every original row ID and expected one-output-per-input-row closure contract.",
       "acceptanceCriteria": [
         "Every batch row has stable ID, source, and expected output slot"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/row_inventory-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/row_inventory-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "SCHEMA_LOCK",
@@ -43,7 +68,32 @@
       "content": "Define valid gate enum, closure statuses, terminal/manual reason codes, and validator command provenance.",
       "acceptanceCriteria": [
         "Gate taxonomy is exhaustive, ordered, and machine-readable"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/schema_lock-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/schema_lock-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "CLUSTER",
@@ -64,7 +114,32 @@
       "content": "Compute singleton count, duplicate groups, keyed-answer conflicts, and suspicious merges.",
       "acceptanceCriteria": [
         "Keyed-answer conflicts are split or flagged"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/cluster_audit-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/cluster_audit-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "EVIDENCE_BANK",
@@ -89,7 +164,32 @@
       "acceptanceCriteria": [
         "Every row receives exactly one preliminary gate route",
         "Rows needing manual or terminal closure include controlled reason code"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/gate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/gate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "ROUTE_AUDIT",
@@ -103,7 +203,32 @@
         "No missing rows",
         "No multi-route rows",
         "All terminal/manual reasons use controlled vocabulary"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/route_audit-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/route_audit-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "GROUND",
@@ -137,7 +262,32 @@
       "content": "Run the supplied five-gate result validator and capture errors as structured reroute tasks.",
       "acceptanceCriteria": [
         "Validator passes or emits bounded retry plan"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/validate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/validate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "RETRY_OR_ESCALATE",
@@ -149,7 +299,32 @@
       "content": "Validator errors feed targeted reroute/repair with max attempts, then terminal/manual escalation.",
       "acceptanceCriteria": [
         "Retry count and terminal escalation reasons are recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "mak95-vault",
+            "filesystem",
+            "pageindex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/retry_or_escalate-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": false,
+          "maxRetries": 3,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/mak95-mcq-five-gate-closure.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/mak95-mcq-five-gate-closure/{runId}/retry_or_escalate-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "MERGE_DRY_RUN",

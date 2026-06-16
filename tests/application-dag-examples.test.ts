@@ -7,6 +7,8 @@ const examplesDir = path.join(process.cwd(), 'examples', 'personal-workflows');
 const exampleFiles = fs.readdirSync(examplesDir)
   .filter(file => file.endsWith('.dag.json'))
   .sort();
+const highRiskPattern = /VALIDATE|VERIFY|AUDIT|GATE|SYNC|UPLOAD|WRITE|RELEASE|PUSH|COMMIT|RETRY|REPLAY|REMOTE|BASELINE|MANIFEST|INVENTORY|SCHEMA|CHECKPOINT|APPROVAL|PRIVACY|SECRET|POLL|ROLLBACK|RECONCILE/;
+const safetyRequiredKeys = ['riskLevel', 'mutationSurface', 'dryRunRequired', 'requiresApproval', 'checkpointArtifact', 'rollbackPlan', 'privacyScan', 'maxRetries', 'timeoutSeconds', 'abortOnFailure'];
 
 const requiredGateNodes: Record<string, string[]> = {
   'anzca-saq-syntopical-factory.dag.json': ['DRY_RUN_PREVIEW', 'EVIDENCE_MANIFEST', 'CITATION_AUDIT', 'REGRESSION_CHECK', 'REVIEW_SIGNOFF', 'REPLAY_GATE'],
@@ -53,12 +55,45 @@ describe('personal workflow DAG examples', () => {
 
   it.each(Object.keys(requiredGateNodes))('gives high-risk gates acceptance criteria in %s', (file) => {
     const input = JSON.parse(fs.readFileSync(path.join(examplesDir, file), 'utf8')) as DagInput;
-    const highRiskNodes = input.nodes.filter(node => /VALIDATE|VERIFY|AUDIT|GATE|SYNC|UPLOAD|WRITE|RELEASE|PUSH|COMMIT|RETRY|REPLAY|REMOTE|BASELINE|MANIFEST|INVENTORY|SCHEMA/.test(node.id));
+    const highRiskNodes = input.nodes.filter(node => highRiskPattern.test(node.id));
 
     expect(highRiskNodes.length).toBeGreaterThan(0);
     for (const node of highRiskNodes) {
       expect(node.acceptanceCriteria, `${file}:${node.id} should declare observable acceptance criteria`).toBeDefined();
       expect(node.acceptanceCriteria?.length, `${file}:${node.id} should have at least one acceptance criterion`).toBeGreaterThan(0);
     }
+  });
+
+  it.each(Object.keys(requiredGateNodes))('gives high-risk nodes typed safety and operational metadata in %s', (file) => {
+    const input = JSON.parse(fs.readFileSync(path.join(examplesDir, file), 'utf8')) as DagInput;
+    const highRiskNodes = input.nodes.filter(node => highRiskPattern.test(node.id));
+
+    for (const node of highRiskNodes) {
+      const safety = node.metadata?.safety as Record<string, unknown> | undefined;
+      const operational = node.metadata?.operational as Record<string, unknown> | undefined;
+      expect(safety, `${file}:${node.id} should have metadata.safety`).toBeDefined();
+      for (const key of safetyRequiredKeys) expect(safety, `${file}:${node.id} missing safety.${key}`).toHaveProperty(key);
+      expect(['low', 'medium', 'high', 'critical']).toContain(safety?.riskLevel);
+      expect(Array.isArray(safety?.mutationSurface) && safety.mutationSurface.length > 0, `${file}:${node.id} needs mutation surfaces`).toBe(true);
+      expect(typeof safety?.rollbackPlan).toBe('string');
+      expect(typeof safety?.checkpointArtifact).toBe('string');
+      expect(typeof safety?.privacyScan).toBe('boolean');
+      expect(typeof safety?.abortOnFailure).toBe('boolean');
+      expect(Number.isInteger(safety?.maxRetries)).toBe(true);
+      expect(Number.isInteger(safety?.timeoutSeconds)).toBe(true);
+      expect(operational?.commandTemplate, `${file}:${node.id} needs operational.commandTemplate`).toContain('--dryRun');
+      expect(operational?.proofArtifact, `${file}:${node.id} needs operational.proofArtifact`).toContain('{runId}');
+      expect(operational?.schemaRef).toBe('schemas/personal-workflows/safety-metadata.schema.json');
+    }
+  });
+
+  it('ships safety schema, dry-run harness, and npm adoption script', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'schemas', 'personal-workflows', 'safety-metadata.schema.json'), 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+
+    expect(schema.required).toEqual(expect.arrayContaining(safetyRequiredKeys));
+    expect(fs.existsSync(path.join(process.cwd(), 'scripts', 'run-personal-workflows.mjs'))).toBe(true);
+    expect(pkg.scripts['examples:dry-run']).toBe('node scripts/run-personal-workflows.mjs --all --dry-run');
+    expect(fs.readFileSync(path.join(process.cwd(), '.gitignore'), 'utf8')).toContain('out/');
   });
 });

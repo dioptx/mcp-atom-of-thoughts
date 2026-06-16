@@ -74,7 +74,33 @@
       "content": "Run targeted red/green test, full test suite, and build.",
       "acceptanceCriteria": [
         "Test/build logs are captured"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_tests-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_tests-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_SMOKE",
@@ -86,7 +112,33 @@
       "content": "Exercise the built CLI path with realistic command inputs and JSON outputs.",
       "acceptanceCriteria": [
         "Smoke JSON includes status ok or expected structured error"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_smoke-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_smoke-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_DOCS_SCHEMA",
@@ -98,7 +150,33 @@
       "content": "Confirm docs/examples still match help/schema and runnable DAG examples.",
       "acceptanceCriteria": [
         "Example commands parse and docs point to existing paths"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_docs_schema-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_docs_schema-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_CALIBER",
@@ -111,7 +189,33 @@
       "acceptanceCriteria": [
         "Hook-active or manual refresh result is recorded",
         "Any Caliber-generated config changes are included or explicitly absent"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_caliber-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_caliber-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_DIFF_SCOPE",
@@ -124,7 +228,33 @@
       "acceptanceCriteria": [
         "Diff check passes",
         "Only intended files are staged"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_diff_scope-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_diff_scope-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_REMOTE",
@@ -136,7 +266,33 @@
       "content": "Confirm push remote URL, visibility, default branch, and that upstream origin will not be disturbed.",
       "acceptanceCriteria": [
         "Private remote proof recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_remote-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_remote-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "COMMIT_SCOPED",
@@ -149,7 +305,33 @@
       "acceptanceCriteria": [
         "Commit includes only intended pathspec scope",
         "Commit hash and message are recorded"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/commit_scoped-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/commit_scoped-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "PUSH_PRIVATE_REMOTE",
@@ -162,7 +344,33 @@
       "acceptanceCriteria": [
         "Push target matches verified private remote",
         "Pre-push checks pass or structured failure is captured"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "high",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": true,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/push_private_remote-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 600,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/push_private_remote-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "VERIFY_REMOTE_STATE",
@@ -174,7 +382,33 @@
       "content": "Check remote commit, branch tracking, private visibility, and clean worktree.",
       "acceptanceCriteria": [
         "Local branch tracks private remote and worktree is clean"
-      ]
+      ],
+      "metadata": {
+        "safety": {
+          "riskLevel": "medium",
+          "mutationSurface": [
+            "git",
+            "github",
+            "caliber",
+            "memex",
+            "br",
+            "linear"
+          ],
+          "dryRunRequired": true,
+          "requiresApproval": false,
+          "checkpointArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_remote_state-checkpoint.json",
+          "rollbackPlan": "Restore from checkpoint artifact or stop with a partial-failure manifest if not reversible.",
+          "privacyScan": true,
+          "maxRetries": 1,
+          "timeoutSeconds": 120,
+          "abortOnFailure": true
+        },
+        "operational": {
+          "commandTemplate": "node build/cli.js dag @examples/personal-workflows/agent-tooling-release-orchestrator.dag.json --dryRun --linear --noGit --noBv --format json",
+          "proofArtifact": "out/personal-workflows/agent-tooling-release-orchestrator/{runId}/verify_remote_state-proof.json",
+          "schemaRef": "schemas/personal-workflows/safety-metadata.schema.json"
+        }
+      }
     },
     {
       "id": "CAPTURE_LEARNING",
