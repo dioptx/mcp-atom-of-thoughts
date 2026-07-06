@@ -9,7 +9,8 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { graphFormatMisuseHint, GRAPH_RENDER_FORMATS } from '../src/cli-hints.js';
+import { z } from 'incur';
+import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint, GRAPH_RENDER_FORMATS } from '../src/cli-hints.js';
 
 describe('graphFormatMisuseHint', () => {
   it.each([...GRAPH_RENDER_FORMATS])('hints --graphFormat when --format %s is passed', (fmt) => {
@@ -32,6 +33,81 @@ describe('graphFormatMisuseHint', () => {
 
   it('ignores a dangling --format with no value', () => {
     expect(graphFormatMisuseHint(['graph', '--format'])).toBeNull();
+  });
+
+  it('is scoped to the graph command and stays silent elsewhere', () => {
+    expect(graphFormatMisuseHint(['list', '--format', 'mermaid'])).toBeNull();
+    expect(graphFormatMisuseHint(['analyze', '--format=tree'])).toBeNull();
+    expect(graphFormatMisuseHint(['--format', 'mermaid'])).toBeNull();
+  });
+});
+
+describe('booleanOptionNames', () => {
+  it('extracts boolean option names through optional/default wrappers', () => {
+    const schema = z.object({
+      verified: z.boolean().optional(),
+      dryRun: z.boolean().default(false),
+      force: z.boolean(),
+      confidence: z.coerce.number().optional(),
+      content: z.string().optional(),
+    });
+    expect(booleanOptionNames(schema)).toEqual(new Set(['verified', 'dryRun', 'force']));
+  });
+
+  it('returns an empty set for undefined or non-schema input', () => {
+    expect(booleanOptionNames(undefined).size).toBe(0);
+    expect(booleanOptionNames({ shape: null }).size).toBe(0);
+    expect(booleanOptionNames('nope').size).toBe(0);
+  });
+});
+
+describe('booleanFlagLiteralHint', () => {
+  const flags = new Set(['verified', 'dryRun', 'force']);
+
+  it('hints the = form for --verified false', () => {
+    const hint = booleanFlagLiteralHint(['set', 'H1', '--verified', 'false'], flags);
+    expect(hint).toContain('--verified=false');
+    expect(hint).toContain('--no-verified');
+  });
+
+  it('hints the = form for --verified true', () => {
+    const hint = booleanFlagLiteralHint(['set', 'H1', '--verified', 'true'], flags);
+    expect(hint).toContain('--verified=true');
+  });
+
+  it('handles kebab-case flags (--dry-run true)', () => {
+    const hint = booleanFlagLiteralHint(['gc', '--dry-run', 'true'], flags);
+    expect(hint).toContain('--dryRun=true');
+  });
+
+  it('handles negated flags (--no-verified true)', () => {
+    const hint = booleanFlagLiteralHint(['set', 'H1', '--no-verified', 'true'], flags);
+    expect(hint).toContain('--verified=true');
+  });
+
+  // Adversarial negatives: inputs that must NOT trigger the guard.
+  it('does not fire on non-boolean flags taking literal true/false values', () => {
+    expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'true'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'false'], flags)).toBeNull();
+  });
+
+  it('does not fire on the explicit = form or bare boolean flags', () => {
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified=false'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified=true'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--no-verified'], flags)).toBeNull();
+  });
+
+  it('does not fire on positionals or values that merely contain true/false', () => {
+    expect(booleanFlagLiteralHint(['fast', 'p', 'P1', 'true'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'truthy'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'it is true'], flags)).toBeNull();
+  });
+
+  it('does not fire on unknown flags or after a bare -- separator', () => {
+    expect(booleanFlagLiteralHint(['set', 'H1', '--bogus', 'false'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['server', '--', '--verified', 'false'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'false'], new Set())).toBeNull();
   });
 });
 
@@ -88,5 +164,48 @@ describe('aot graph output (built CLI)', () => {
     expect(status).toBe(1);
     expect(stderr).toContain('Invalid format: "mermaid"');
     expect(stderr).toContain('aot graph --graphFormat mermaid');
+  });
+
+  it('does not emit the graph-specific hint on other commands', () => {
+    const { stderr } = runCli(['list', '--format', 'mermaid']);
+    expect(stderr).not.toContain('--graphFormat');
+  });
+
+  it('rejects --verified false instead of silently setting verified=true', () => {
+    const { status, stderr } = runCli(['set', 'P1', '--verified', 'false']);
+    expect(status).toBe(1);
+    expect(stderr).toContain('--verified=false');
+    const shown = runCli(['show', 'P1', '--format', 'json']);
+    expect(JSON.parse(shown.stdout).atom.isVerified).toBe(false);
+  });
+
+  it('honors the explicit = form for both polarities', () => {
+    const on = runCli(['set', 'P1', '--verified=true', '--format', 'json']);
+    expect(on.status).toBe(0);
+    expect(JSON.parse(on.stdout).atom.isVerified).toBe(true);
+
+    const rejected = runCli(['set', 'P1', '--verified', 'false']);
+    expect(rejected.status).toBe(1);
+    let shown = runCli(['show', 'P1', '--format', 'json']);
+    expect(JSON.parse(shown.stdout).atom.isVerified).toBe(true); // unchanged by the rejected call
+
+    const off = runCli(['set', 'P1', '--verified=false', '--format', 'json']);
+    expect(off.status).toBe(0);
+    expect(JSON.parse(off.stdout).atom.isVerified).toBe(false);
+  });
+
+  it('still allows literal true/false as values of non-boolean flags', () => {
+    const { status, stdout } = runCli(['set', 'P1', '--content', 'true', '--format', 'json']);
+    expect(status).toBe(0);
+    expect(JSON.parse(stdout).atom.content).toBe('true');
+    const restore = runCli(['set', 'P1', '--content', 'raw render premise']);
+    expect(restore.status).toBe(0);
+  });
+
+  it('renders help examples in the --flag=value form', () => {
+    const { stdout, stderr } = runCli(['set', '--help']);
+    const help = stdout + stderr;
+    expect(help).toContain('--verified=true');
+    expect(help).not.toMatch(/--verified (true|false)/);
   });
 });

@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Bool-flag footgun: a bare boolean flag followed by a literal `true`/`false` (e.g. `aot set H1 --verified false`, which used to succeed while leaving `isVerified: true`) now hard-errors with a hint pointing at the unambiguous `--verified=false` / `--no-verified` forms. Boolean flag names are derived from each command's own options schema, so the guard is scoped to the invoked command and literal `true`/`false` values of non-boolean flags (e.g. `--content true`) still pass through. Help examples now render boolean options in the `=` form. No state-format change: existing state files load unchanged.
+- The `--graphFormat` misuse hint is now scoped to `aot graph`; other commands (e.g. `aot list --format mermaid`) get the framework's own envelope-format error instead of a graph-specific hint.
 - Dependency cycles can no longer be constructed by overwriting an existing atom (`assertNoCycle` in both full and fast servers).
 - Corrupt `state.json` no longer bricks every command: it is quarantined to `state.json.corrupt-<ts>` and the CLI starts fresh.
 - State writes are atomic (tmp + rename), eliminating truncated-state corruption from interrupted writes.

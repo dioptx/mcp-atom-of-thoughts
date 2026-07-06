@@ -16,7 +16,7 @@ import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
 import { renderGraph } from './graph-render.js';
-import { graphFormatMisuseHint } from './cli-hints.js';
+import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint } from './cli-hints.js';
 
 const VERSION = '3.1.0';
 const OUTPUT_SCHEMA_VERSION = 'aot.cli.pipeline.v1';
@@ -387,6 +387,20 @@ const cli = Cli.create('aot', {
   },
 });
 
+/**
+ * Renders boolean example options in the explicit `--flag=value` form. The
+ * framework's default example rendering emits `--flag value`, which is
+ * exactly the bare-boolean footgun the CLI now rejects up front.
+ */
+function exampleOptions<const T extends Record<string, unknown>>(options: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(options)) {
+    if (typeof value === 'boolean') out[`${key}=${value}`] = '';
+    else out[key] = value;
+  }
+  return out as T;
+}
+
 cli.command('tools', {
   description: 'List available Atom of Thoughts tools without starting an MCP server.',
   output: z.object({ tools: z.array(z.any()) }),
@@ -542,7 +556,7 @@ cli.command('br', {
   }),
   output: AnyOutput,
   examples: [
-    { options: { dryRun: true }, description: 'Preview br issues for the active graph' },
+    { options: exampleOptions({ dryRun: true }), description: 'Preview br issues for the active graph' },
     { options: { db: '.beads/project.db' }, description: 'Sync into an explicit br database' },
   ],
   run({ options }) { return syncCurrentGraphToBr(options); },
@@ -567,7 +581,7 @@ cli.command('bv', {
   }),
   output: AnyOutput,
   examples: [
-    { args: { command: 'triage' }, options: { sync: true, maxResults: 10 }, description: 'Sync AoT to br and get bv triage' },
+    { args: { command: 'triage' }, options: exampleOptions({ maxResults: 10, sync: true }), description: 'Sync AoT to br and get bv triage' },
     { args: { command: 'insights' }, options: { db: '.beads' }, description: 'Run bv insights on an explicit beads workspace' },
   ],
   run({ args, options }) {
@@ -611,7 +625,7 @@ cli.command('pex', {
   }),
   output: AnyOutput,
   examples: [
-    { args: { target: 'AP19B01' }, options: { topic: 'suxamethonium adverse effects', toAtoms: true }, description: 'Retrieve PEX context and seed AoT atoms' },
+    { args: { target: 'AP19B01' }, options: exampleOptions({ topic: 'suxamethonium adverse effects', toAtoms: true }), description: 'Retrieve PEX context and seed AoT atoms' },
   ],
   run({ args, options }) {
     if (!pexCommandAvailable()) return { status: 'skipped', reason: 'pex command not found' };
@@ -780,7 +794,7 @@ cli.command('dag', {
   }),
   output: AnyOutput,
   examples: [
-    { args: { dag: '@dag.json' }, options: { dryRun: true, linear: true }, description: 'Preview AoT/br/Linear encoding for a rich DAG' },
+    { args: { dag: '@dag.json' }, options: exampleOptions({ dryRun: true, linear: true }), description: 'Preview AoT/br/Linear encoding for a rich DAG' },
   ],
   run({ args, options }) {
     const meta = pipelineMeta('dag');
@@ -857,7 +871,7 @@ cli.command('audit', {
   output: AnyOutput,
   examples: [
     { args: { command: 'triage' }, description: 'Sync current AoT graph and evaluate next work' },
-    { args: { command: 'insights' }, options: { noSync: true }, description: 'Analyze an existing br workspace' },
+    { args: { command: 'insights' }, options: exampleOptions({ noSync: true }), description: 'Analyze an existing br workspace' },
   ],
   run({ args, options }) {
     const br = options.noSync ? undefined : syncCurrentGraphToBr({
@@ -929,7 +943,7 @@ cli.command('list', {
   }),
   output: AnyOutput,
   examples: [
-    { options: { type: 'h', verified: false }, description: 'List unverified hypotheses' },
+    { options: exampleOptions({ type: 'h', verified: false }), description: 'List unverified hypotheses' },
   ],
   run({ options }) {
     const server = makeServer();
@@ -1042,7 +1056,7 @@ cli.command('set', {
   alias: { confidence: 'c', deps: 'd' },
   output: AnyOutput,
   examples: [
-    { args: { atomId: 'H1' }, options: { confidence: 0.95, verified: true }, description: 'Mark hypothesis verified at 95%' },
+    { args: { atomId: 'H1' }, options: exampleOptions({ confidence: 0.95, verified: true }), description: 'Mark hypothesis verified at 95%' },
   ],
   run({ args, options }) {
     return withStateLock(() => {
@@ -1087,7 +1101,7 @@ cli.command('gc', {
   }),
   output: AnyOutput,
   examples: [
-    { options: { dryRun: true }, description: 'Preview what would be pruned' },
+    { options: exampleOptions({ dryRun: true }), description: 'Preview what would be pruned' },
   ],
   run({ options }) {
     return withStateLock(() => {
@@ -1126,9 +1140,21 @@ cli.command('tui', {
   async run({ args }) { return passthrough(['tui', ...args.args]); },
 });
 
-const formatHint = graphFormatMisuseHint(process.argv.slice(2));
+const cliArgv = process.argv.slice(2);
+const formatHint = graphFormatMisuseHint(cliArgv);
 if (formatHint) {
   process.stderr.write(`${formatHint}\n`);
+  process.exit(1);
+}
+
+// Guard the bare-boolean-flag footgun (`aot set H1 --verified false` would
+// otherwise set verified=true and drop "false" as a stray positional).
+// Boolean flag names are derived from the invoked command's own options
+// schema via the framework's command registry, so there is no drift.
+const commandEntry = Cli.toCommands.get(cli as never)?.get(cliArgv[0] ?? '');
+const booleanHint = booleanFlagLiteralHint(cliArgv, booleanOptionNames((commandEntry as { options?: unknown } | undefined)?.options));
+if (booleanHint) {
+  process.stderr.write(`${booleanHint}\n`);
   process.exit(1);
 }
 
