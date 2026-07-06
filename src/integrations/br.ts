@@ -82,6 +82,15 @@ export function summarizeBrSync(sync: Record<string, unknown>): BrSyncSummary {
   };
 }
 
+function brDependencyType(relation: string, blocking?: boolean): string {
+  if (blocking === true) return relation === 'parent_child' ? 'parent-child' : 'blocks';
+  if (relation === 'parent_child') return 'parent-child';
+  if (relation === 'depends_on' || relation === 'requires' || relation === 'blocks' || relation === 'blocked_by') return 'blocks';
+  if (relation === 'constrains' || relation === 'constrained_by' || relation === 'entails' || relation === 'entailed_by') return 'related';
+  if (relation === 'related') return 'related';
+  return blocking === false ? 'related' : relation;
+}
+
 export function syncGraphToBr(graph: GraphData, sessionId: string, options: BrSyncOptions = {}): Record<string, unknown> {
   const workspace = options.dryRun ? { status: 'dry-run' } : ensureBrWorkspace(options);
   const existingList = options.dryRun ? [] : (runBr(['list'], options) as Array<Record<string, unknown>>);
@@ -141,7 +150,7 @@ export function syncGraphToBr(graph: GraphData, sessionId: string, options: BrSy
     const dependency = issueByAtom.get(link.source);
     if (!dependent || !dependency) continue;
     const relation = link.relation ?? 'blocks';
-    const depType = link.blocking === false ? relation : (relation === 'depends_on' || relation === 'requires' ? 'blocks' : relation);
+    const depType = brDependencyType(relation, link.blocking);
     if (options.dryRun) {
       dependencies.push({ from: link.source, to: link.target, relation, type: depType, dryRun: true, dependent, dependency });
       continue;

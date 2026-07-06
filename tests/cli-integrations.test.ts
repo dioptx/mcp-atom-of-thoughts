@@ -158,6 +158,26 @@ describe('CLI integration helpers', () => {
     ]);
   });
 
+  it('maps nonblocking semantic DAG edges to br related dependencies', () => {
+    const result = syncGraphToBr({
+      title: 'Semantic edge graph',
+      nodes: [
+        { id: 'A', type: 'premise', content: 'Requirement', confidence: 0.9, depth: 0, title: 'Requirement', externalRef: 'aot:dry:A' },
+        { id: 'B', type: 'reasoning', content: 'Implementation', confidence: 0.8, depth: 1, title: 'Implementation', externalRef: 'aot:dry:B' },
+        { id: 'C', type: 'verification', content: 'Validation', confidence: 0.8, depth: 1, title: 'Validation', externalRef: 'aot:dry:C' },
+      ],
+      links: [
+        { source: 'A', target: 'B', relation: 'entails', blocking: false },
+        { source: 'C', target: 'B', relation: 'constrains', blocking: false },
+      ],
+    }, 'dry', { dryRun: true, command: 'definitely-not-installed-br' });
+
+    expect(result.dependencies).toEqual([
+      expect.objectContaining({ from: 'A', to: 'B', relation: 'entails', type: 'related' }),
+      expect.objectContaining({ from: 'C', to: 'B', relation: 'constrains', type: 'related' }),
+    ]);
+  });
+
   it('previews Linear issue and relation commands during dry-run without requiring linear-cli', () => {
     const dag = normalizeDag({
       sessionId: 'linear-dry',
