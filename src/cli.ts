@@ -16,6 +16,7 @@ import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
 import { renderGraph } from './graph-render.js';
+import { graphFormatMisuseHint } from './cli-hints.js';
 
 const VERSION = '3.1.0';
 const OUTPUT_SCHEMA_VERSION = 'aot.cli.pipeline.v1';
@@ -1005,19 +1006,26 @@ cli.command('graph', {
     title: z.string().optional().describe('Graph title'),
     out: z.string().optional().describe('Write rendered output to a file (e.g. plan.canvas) instead of returning it inline'),
   }),
-  output: AnyOutput,
+  // Union: raw rendered string by default, structured payload with --format/--out.
+  output: z.any(),
   examples: [
     { options: { graphFormat: 'mermaid' }, description: 'Mermaid diagram for docs' },
     { options: { graphFormat: 'canvas', out: 'reasoning.canvas' }, description: 'Obsidian canvas file' },
   ],
-  run({ options }) {
+  run({ options, formatExplicit }) {
     const { graph, sessionId } = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
     const rendered = renderGraph(graph, options.graphFormat);
     if (options.out) {
       fs.writeFileSync(options.out, rendered.endsWith('\n') ? rendered : `${rendered}\n`);
       return { sessionId, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
     }
-    return { sessionId, format: options.graphFormat, rendered };
+    // Structured envelope only on explicit request (--format json / --json /
+    // --format toon ...); by default the render goes to stdout raw so
+    // tree/mermaid/dot output is terminal- and doc-pasteable, with metadata
+    // on stderr.
+    if (formatExplicit) return { sessionId, format: options.graphFormat, rendered };
+    process.stderr.write(`aot graph: session=${sessionId} graphFormat=${options.graphFormat}\n`);
+    return rendered;
   },
 });
 
@@ -1117,6 +1125,12 @@ cli.command('tui', {
   output: z.object({ exitCode: z.number().nullable() }),
   async run({ args }) { return passthrough(['tui', ...args.args]); },
 });
+
+const formatHint = graphFormatMisuseHint(process.argv.slice(2));
+if (formatHint) {
+  process.stderr.write(`${formatHint}\n`);
+  process.exit(1);
+}
 
 cli.serve();
 export default cli;

@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Mutation commands: `aot set <id>` (content/confidence/verified/deps with existence and cycle guards) and `aot rm <id>` (refuses while dependents exist unless `--force`, which detaches them), backed by new `AtomOfThoughtsServer.updateAtom`/`removeAtom`.
 - `aot gc`: prune completed/empty sessions from persistent state with `--dryRun`, `--olderThanDays`, and `--keepCompleted` filters; never touches the active or `default` session.
 
+### Changed
+
+- `aot graph` now prints the rendered tree/mermaid/dot/canvas text raw to stdout by default (metadata on stderr), so output is terminal- and doc-pasteable; the structured `{ sessionId, format, rendered }` payload remains available behind an explicit `--format json` (or any explicit `--format`), and `--out` is unchanged.
+- Passing a graph render format to the global envelope flag (`aot graph --format mermaid`) now exits with a hint pointing at `--graphFormat` instead of the framework's bare `Invalid format` parse error (`src/cli-hints.ts`).
+
 ### Fixed
 
 - Dependency cycles can no longer be constructed by overwriting an existing atom (`assertNoCycle` in both full and fast servers).
