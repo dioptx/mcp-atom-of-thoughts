@@ -208,6 +208,74 @@ export class AtomOfThoughtsServer {
     return dependencies.every(depId => session.atoms[depId] !== undefined);
   }
 
+  /**
+   * Reject dependency sets that would create a cycle. Cycles are only
+   * constructible by overwriting an existing atom with dependencies that
+   * transitively reach it.
+   */
+  protected assertNoCycle(session: Session, atomId: string, dependencies: string[]): void {
+    const visited = new Set<string>();
+    const stack = [...dependencies];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current === atomId) {
+        throw new Error(`Dependency cycle detected: ${atomId} would transitively depend on itself`);
+      }
+      if (visited.has(current)) continue;
+      visited.add(current);
+      const atom = session.atoms[current];
+      if (atom) stack.push(...atom.dependencies);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Direct mutation (CLI-facing)
+  // -------------------------------------------------------------------------
+
+  public updateAtom(atomId: string, patch: { content?: string; confidence?: number; isVerified?: boolean; dependencies?: string[] }, sessionId?: string): AtomData {
+    const session = this.getSession(sessionId);
+    const atom = session.atoms[atomId];
+    if (!atom) throw new Error(`Atom with ID ${atomId} not found`);
+
+    if (patch.dependencies !== undefined) {
+      if (!this.validateDependencies(session, patch.dependencies)) {
+        const missing = patch.dependencies.filter(depId => session.atoms[depId] === undefined);
+        throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
+      }
+      this.assertNoCycle(session, atomId, patch.dependencies);
+      atom.dependencies = patch.dependencies;
+    }
+    if (patch.content !== undefined) atom.content = patch.content;
+    if (patch.confidence !== undefined) {
+      if (patch.confidence < 0 || patch.confidence > 1) throw new Error('Confidence must be between 0 and 1');
+      atom.confidence = patch.confidence;
+    }
+    if (patch.isVerified !== undefined) {
+      this.verifyAtom(session, atomId, patch.isVerified);
+    }
+    return atom;
+  }
+
+  public removeAtom(atomId: string, sessionId?: string, force = false): { removed: string; detachedFrom: string[] } {
+    const session = this.getSession(sessionId);
+    if (!session.atoms[atomId]) throw new Error(`Atom with ID ${atomId} not found`);
+
+    const dependents = this.getDependentAtoms(session, atomId);
+    if (dependents.length > 0 && !force) {
+      throw new Error(`Atom ${atomId} has dependents: [${dependents.join(', ')}]. Pass force to detach and remove.`);
+    }
+    for (const dependent of dependents) {
+      session.atoms[dependent].dependencies = session.atoms[dependent].dependencies.filter(dep => dep !== atomId);
+    }
+    delete session.atoms[atomId];
+    session.atomOrder = session.atomOrder.filter(id => id !== atomId);
+    session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
+    for (const state of Object.values(session.decompositionStates)) {
+      state.subAtoms = state.subAtoms.filter(id => id !== atomId);
+    }
+    return { removed: atomId, detachedFrom: dependents };
+  }
+
   // -------------------------------------------------------------------------
   // Verification, decomposition, termination — all session-scoped
   // -------------------------------------------------------------------------
@@ -331,7 +399,9 @@ export class AtomOfThoughtsServer {
   }
 
   protected suggestConclusion(session: Session, verifiedHypothesis: AtomData): string {
-    const conclusionId = `C${Object.keys(session.atoms).filter(id => id.startsWith('C')).length + 1}`;
+    let n = Object.keys(session.atoms).filter(id => /^C\d+$/.test(id)).length + 1;
+    while (session.atoms[`C${n}`]) n++;
+    const conclusionId = `C${n}`;
 
     const conclusionAtom: AtomData = {
       atomId: conclusionId,
@@ -436,6 +506,7 @@ export class AtomOfThoughtsServer {
         const missing = validatedInput.dependencies.filter(depId => session.atoms[depId] === undefined);
         throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
       }
+      this.assertNoCycle(session, validatedInput.atomId, validatedInput.dependencies);
 
       if (validatedInput.depth === undefined) {
         const depthsOfDependencies = validatedInput.dependencies

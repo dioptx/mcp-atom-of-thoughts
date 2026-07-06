@@ -49,6 +49,7 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       }
 
       const validatedInput = this.validateAtomData(input);
+      this.assertNoCycle(session, validatedInput.atomId, validatedInput.dependencies);
 
       session.atoms[validatedInput.atomId] = validatedInput;
 

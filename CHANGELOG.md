@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Graph introspection commands: `aot list` (type/verified/min-confidence filters) and `aot show <id>` (atom with dependencies, dependents, effective confidence, and per-atom lint issues).
+- `aot analyze`: cycles, dangling dependencies, topological order, roots/leaves, effective (propagated) confidence, weakest links, contradiction candidates, critical path to the best conclusion, and lint issues (`unverified_conclusion`, `unsupported_conclusion`, `untested_hypothesis`, `weak_support`).
+- `aot graph --graphFormat tree|mermaid|dot|canvas [--out file]`: ASCII tree, Mermaid, Graphviz dot, and Obsidian JSON Canvas renderers over the session graph (`src/graph-render.ts`, reusable by the MCP server/TUI).
+- Mutation commands: `aot set <id>` (content/confidence/verified/deps with existence and cycle guards) and `aot rm <id>` (refuses while dependents exist unless `--force`, which detaches them), backed by new `AtomOfThoughtsServer.updateAtom`/`removeAtom`.
+- `aot gc`: prune completed/empty sessions from persistent state with `--dryRun`, `--olderThanDays`, and `--keepCompleted` filters; never touches the active or `default` session.
+
+### Fixed
+
+- Dependency cycles can no longer be constructed by overwriting an existing atom (`assertNoCycle` in both full and fast servers).
+- Corrupt `state.json` no longer bricks every command: it is quarantined to `state.json.corrupt-<ts>` and the CLI starts fresh.
+- State writes are atomic (tmp + rename), eliminating truncated-state corruption from interrupted writes.
+- Stale `state.json.lock` files from crashed processes are detected via PID liveness and broken automatically instead of deadlocking for ever.
+- Auto-suggested conclusion IDs no longer collide with user atom IDs that start with `C` (e.g. `CACHE1`).
+
 ## [3.1.0] — 2026-06-16
 
 ### Added

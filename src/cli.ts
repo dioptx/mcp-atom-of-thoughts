@@ -14,6 +14,8 @@ import { bvCommandAvailable, runBvRobot, summarizeBvRobot, type BvRobotCommand }
 import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, summarizeDag, syncDagToLinear } from './integrations/dag.js';
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
+import { analyzeGraph } from './graph-analysis.js';
+import { renderGraph } from './graph-render.js';
 
 const VERSION = '3.1.0';
 const OUTPUT_SCHEMA_VERSION = 'aot.cli.pipeline.v1';
@@ -152,17 +154,29 @@ function makeServer(): AtomOfThoughtsServer {
   const server = new AtomOfThoughtsServer(5);
   if (!fs.existsSync(STATE_PATH)) return server;
 
-  const state = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) as Partial<AtomServerSnapshot>;
-  server.importState(state);
+  try {
+    const state = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) as Partial<AtomServerSnapshot>;
+    if (!state || typeof state !== 'object' || (state.sessions !== undefined && typeof state.sessions !== 'object')) {
+      throw new Error('Invalid state shape');
+    }
+    server.importState(state);
+  } catch {
+    // Corrupt state: quarantine instead of bricking every future command.
+    const quarantine = `${STATE_PATH}.corrupt-${Date.now()}`;
+    try { fs.renameSync(STATE_PATH, quarantine); } catch { /* best effort */ }
+    console.error(`aot: corrupt state quarantined to ${quarantine}; starting fresh`);
+  }
   return server;
 }
 
 function saveServer(server: AtomOfThoughtsServer): void {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  fs.writeFileSync(STATE_PATH, JSON.stringify({
+  const tmp = `${STATE_PATH}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, JSON.stringify({
     version: 1,
     ...server.exportState(),
   }, null, 2) + '\n');
+  fs.renameSync(tmp, STATE_PATH);
 }
 
 function parseToolText(result: { content: Array<{ type: string; text: string }> }): unknown {
@@ -196,6 +210,20 @@ function withStateLock<T>(fn: () => T): T {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() > deadline) {
         throw error;
       }
+      // Break stale locks left by crashed processes.
+      try {
+        const holderPid = Number.parseInt(fs.readFileSync(lockPath, 'utf8').trim(), 10);
+        if (Number.isFinite(holderPid)) {
+          try {
+            process.kill(holderPid, 0);
+          } catch (killError) {
+            if ((killError as NodeJS.ErrnoException).code === 'ESRCH') {
+              fs.rmSync(lockPath, { force: true });
+              continue;
+            }
+          }
+        }
+      } catch { /* lock vanished or unreadable; retry below */ }
       sleep(50);
     }
   }
@@ -888,6 +916,190 @@ cli.command('reset', {
   args: z.object({ sessionId: z.string().optional().describe('Optional session ID') }),
   output: AnyOutput,
   run({ args }) { return runAtomCommand('reset_session', { sessionId: args.sessionId }); },
+});
+
+cli.command('list', {
+  description: 'List atoms in a session with optional type/verification/confidence filters.',
+  options: z.object({
+    sessionId: z.string().optional().describe('Session to list (default active)'),
+    type: TypeAlias.optional().describe('Filter by atom type or shorthand p/r/h/v/c'),
+    verified: z.boolean().optional().describe('Filter by verification state'),
+    minConfidence: z.coerce.number().optional().describe('Minimum confidence (0-1 or 0-100)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { options: { type: 'h', verified: false }, description: 'List unverified hypotheses' },
+  ],
+  run({ options }) {
+    const server = makeServer();
+    const sessionId = options.sessionId ?? server.getActiveSessionId();
+    const atoms = server.getAtoms(options.sessionId);
+    const minConfidence = normalizeConfidence(options.minConfidence);
+    const rows = server.getAtomOrder(options.sessionId)
+      .map(id => atoms[id])
+      .filter(Boolean)
+      .filter(atom => options.type === undefined || atom.atomType === normalizeType(options.type))
+      .filter(atom => options.verified === undefined || atom.isVerified === options.verified)
+      .filter(atom => minConfidence === undefined || atom.confidence >= minConfidence)
+      .map(atom => ({
+        atomId: atom.atomId,
+        atomType: atom.atomType,
+        confidence: atom.confidence,
+        isVerified: atom.isVerified,
+        depth: atom.depth,
+        dependencies: atom.dependencies,
+        content: atom.content.length > 120 ? `${atom.content.slice(0, 119)}…` : atom.content,
+      }));
+    return { sessionId, count: rows.length, atoms: rows };
+  },
+});
+
+cli.command('show', {
+  description: 'Show one atom in full, with its direct dependencies, dependents, and effective confidence.',
+  args: z.object({ atomId: z.string().describe('Atom ID') }),
+  options: z.object({ sessionId: z.string().optional().describe('Session (default active)') }),
+  output: AnyOutput,
+  examples: [{ args: { atomId: 'H1' }, description: 'Inspect hypothesis H1' }],
+  run({ args, options }) {
+    const server = makeServer();
+    const sessionId = options.sessionId ?? server.getActiveSessionId();
+    const atoms = server.getAtoms(options.sessionId);
+    const atom = atoms[args.atomId];
+    if (!atom) throw new Error(`Atom with ID ${args.atomId} not found in session ${sessionId}`);
+    const analysis = analyzeGraph(atoms);
+    const atomAnalysis = analysis.atoms.find(a => a.atomId === args.atomId);
+    return {
+      sessionId,
+      atom,
+      effectiveConfidence: atomAnalysis?.effectiveConfidence,
+      dependencies: atom.dependencies.map(id => atoms[id]).filter(Boolean),
+      dependents: (atomAnalysis?.dependents ?? []).map(id => atoms[id]).filter(Boolean),
+      issues: analysis.issues.filter(issue => issue.atomIds.includes(args.atomId)),
+    };
+  },
+});
+
+cli.command('analyze', {
+  description: 'Analyze the atom graph: cycles, dangling deps, topological order, effective (propagated) confidence, weakest links, contradictions, critical path, and lint issues.',
+  options: z.object({
+    sessionId: z.string().optional().describe('Session to analyze (default active)'),
+    weakThreshold: z.coerce.number().optional().describe('Effective-confidence threshold for weak_support issues (default 0.5)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { description: 'Analyze the active session' },
+    { options: { weakThreshold: 0.7 }, description: 'Stricter weak-support lint' },
+  ],
+  run({ options }) {
+    const server = makeServer();
+    const sessionId = options.sessionId ?? server.getActiveSessionId();
+    return { sessionId, ...analyzeGraph(server.getAtoms(options.sessionId), { weakThreshold: options.weakThreshold }) };
+  },
+});
+
+cli.command('graph', {
+  description: 'Render the atom graph as an ASCII tree, mermaid, graphviz dot, or Obsidian JSON Canvas.',
+  options: z.object({
+    graphFormat: z.enum(['tree', 'mermaid', 'dot', 'canvas']).default('tree').describe('Render format'),
+    sessionId: z.string().optional().describe('Session to render (default active)'),
+    title: z.string().optional().describe('Graph title'),
+    out: z.string().optional().describe('Write rendered output to a file (e.g. plan.canvas) instead of returning it inline'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { options: { graphFormat: 'mermaid' }, description: 'Mermaid diagram for docs' },
+    { options: { graphFormat: 'canvas', out: 'reasoning.canvas' }, description: 'Obsidian canvas file' },
+  ],
+  run({ options }) {
+    const { graph, sessionId } = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
+    const rendered = renderGraph(graph, options.graphFormat);
+    if (options.out) {
+      fs.writeFileSync(options.out, rendered.endsWith('\n') ? rendered : `${rendered}\n`);
+      return { sessionId, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
+    }
+    return { sessionId, format: options.graphFormat, rendered };
+  },
+});
+
+cli.command('set', {
+  description: 'Update an existing atom: content, confidence, verification, or dependencies (cycle-checked).',
+  args: z.object({ atomId: z.string().describe('Atom ID') }),
+  options: z.object({
+    content: z.string().optional().describe('New content'),
+    confidence: z.coerce.number().optional().describe('New confidence (0-1 or 0-100)'),
+    verified: z.boolean().optional().describe('Set verification state'),
+    deps: z.string().optional().describe('Comma-separated replacement dependency IDs'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+  }),
+  alias: { confidence: 'c', deps: 'd' },
+  output: AnyOutput,
+  examples: [
+    { args: { atomId: 'H1' }, options: { confidence: 0.95, verified: true }, description: 'Mark hypothesis verified at 95%' },
+  ],
+  run({ args, options }) {
+    return withStateLock(() => {
+      const server = makeServer();
+      const atom = server.updateAtom(args.atomId, {
+        content: options.content,
+        confidence: normalizeConfidence(options.confidence),
+        isVerified: options.verified,
+        dependencies: options.deps !== undefined ? parseDeps(options.deps) : undefined,
+      }, options.sessionId);
+      saveServer(server);
+      return { status: 'success', sessionId: options.sessionId ?? server.getActiveSessionId(), atom };
+    });
+  },
+});
+
+cli.command('rm', {
+  description: 'Remove an atom. Refuses while dependents exist unless --force, which detaches them.',
+  args: z.object({ atomId: z.string().describe('Atom ID') }),
+  options: z.object({
+    force: z.boolean().optional().describe('Detach dependents and remove anyway'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+  }),
+  output: AnyOutput,
+  examples: [{ args: { atomId: 'R2' }, description: 'Remove a leaf atom' }],
+  run({ args, options }) {
+    return withStateLock(() => {
+      const server = makeServer();
+      const result = server.removeAtom(args.atomId, options.sessionId, options.force ?? false);
+      saveServer(server);
+      return { status: 'success', sessionId: options.sessionId ?? server.getActiveSessionId(), ...result };
+    });
+  },
+});
+
+cli.command('gc', {
+  description: 'Prune completed and empty sessions from persistent state (never the active session or "default").',
+  options: z.object({
+    dryRun: z.boolean().optional().describe('Preview removals without writing'),
+    olderThanDays: z.coerce.number().optional().describe('Only prune sessions older than N days'),
+    keepCompleted: z.boolean().optional().describe('Only prune empty sessions, keep completed ones'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { options: { dryRun: true }, description: 'Preview what would be pruned' },
+  ],
+  run({ options }) {
+    return withStateLock(() => {
+      const server = makeServer();
+      const state = server.exportState();
+      const cutoff = options.olderThanDays !== undefined ? Date.now() - options.olderThanDays * 86_400_000 : undefined;
+      const removed: Array<{ id: string; status: string; atomCount: number }> = [];
+      for (const [id, session] of Object.entries(state.sessions)) {
+        if (id === state.activeSessionId || id === 'default') continue;
+        if (cutoff !== undefined && session.createdAt > cutoff) continue;
+        const empty = Object.keys(session.atoms).length === 0;
+        const prunable = empty || (!options.keepCompleted && session.status === 'completed');
+        if (!prunable) continue;
+        removed.push({ id, status: session.status, atomCount: Object.keys(session.atoms).length });
+        if (!options.dryRun) delete state.sessions[id];
+      }
+      if (!options.dryRun && removed.length > 0) saveServer(server);
+      return { status: 'success', dryRun: Boolean(options.dryRun), removedCount: removed.length, removed, remaining: Object.keys(state.sessions).length };
+    });
+  },
 });
 
 cli.command('server', {
