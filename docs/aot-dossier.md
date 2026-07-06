@@ -82,3 +82,13 @@ The 63-friction backlog harvested by the self-improvement workflow was deduplica
 - **Capabilities**: analyze --gate/--failOn (CI exit codes), import (export round-trip), analyze/graph --from file, --evidence attachments.
 
 Remaining known ceilings (deliberate): termination still uses raw confidence (surfaced by low_effective_conclusion rather than changed — MCP behavior pin); C5 silent coercion in validateAtomData unchanged for MCP payload-shape compatibility.
+
+## 7. Systems-thinking integration (2026-07-07)
+
+A signed-causal layer over the same atoms, built by a 3-round self-improving workflow (grok composer-2.5-fast design/critique subagents, Claude implementers, validator gate, meta-agent prompt evolution). Unification principle: the AoT DAG is epistemic ("what we believe and why"), the causal graph is dynamical ("how the believed system behaves") — they share atoms, AoT effective confidence weights loop analysis, refuted atoms drop out, verification atoms double as control sensors.
+
+- `src/systems-analysis.ts` (pure, like graph-analysis.ts): causal adjacency, bounded loop enumeration with canonical rotation ids (12/500 bounds, `truncated`), reinforcing/balancing classification (even `-` parity), loop gain (GAIN_NUMERIC 0.5/1.0/2.0), control-loop role mapping + open-loop risk, `computeLeverage` (40/25/35 weighting × effConf, min-max normalized), `simulate` (0.85 damping, MIN_STRENGTH 0.1, per-linkId traversal cap, first-order/loop-mediated/emergent provenance, permutation-invariant), `analyzeSystems` emergence lint.
+- CLI: `aot sys link/unlink/loops/leverage/simulate/lint` — mutations locked, reads lockless, lint `--gate/--failOn` like `analyze`.
+- Rendering: causal edges in mermaid/dot/canvas/tree, byte-identical output when no causal links; export/import round-trips the layer.
+
+Rounds: R1 causal links + loops + control view (324 tests); R2 leverage + simulation + emergence lint (355); R3 rendering + `sys link --update` + polish (370). Session-limit and credit exhaustion interrupted rounds 2 and 3 mid-flight; resumed from the workflow journal cache and the final round implemented directly.

@@ -323,4 +323,84 @@ describe('aot sys commands (built CLI)', () => {
     expect(after.causalLinkCount).toBe(0);
     expect(after.loopCount).toBe(0);
   });
+
+  it.skipIf(!hasBuild)('R3-CLI-01: session graph render includes causal links (both paths)', () => {
+    runJson(['fast', 'premise', 'A', 'demand']);
+    runJson(['fast', 'reasoning', 'B', 'capacity']);
+    runJson(['sys', 'link', 'A', 'B', '--sign', 'plus', '--gain', 'high', '--label', 'drives']);
+    // Session path: raw stdout render (no --format).
+    const mer = spawnSync('node', [CLI_PATH, 'graph', '--graphFormat', 'mermaid'], { env, encoding: 'utf8' });
+    expect(mer.status).toBe(0);
+    expect(mer.stdout).toContain('A -.->|+/high drives| B');
+    // --from path regression (R3-CLI-02): export to file, render from it.
+    const exp = runJson(['export']);
+    const graphFile = path.join(stateDir, 'g.json');
+    fs.writeFileSync(graphFile, JSON.stringify((exp as { graph: unknown }).graph));
+    const dot = spawnSync('node', [CLI_PATH, 'graph', '--from', graphFile, '--graphFormat', 'dot'], { env, encoding: 'utf8' });
+    expect(dot.stdout).toContain('style=dashed');
+    expect(dot.stdout).toContain('#9467bd');
+  });
+
+  it.skipIf(!hasBuild)('R3-UPD: sys link --update upserts (create then update in place)', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    runJson(['fast', 'reasoning', 'R1', 'b']);
+    const created = runJson(['sys', 'link', 'P1', 'R1', '--sign', 'plus', '--update']);
+    expect(created.updated).toBe(false);
+    const cid = (created.link as Record<string, unknown>).id;
+    const ccreated = (created.link as Record<string, unknown>).created;
+    const updated = runJson(['sys', 'link', 'P1', 'R1', '--sign', 'minus', '--gain', 'high', '--update']);
+    expect(updated.updated).toBe(true);
+    expect((updated.link as Record<string, unknown>).id).toBe(cid);
+    expect((updated.link as Record<string, unknown>).created).toBe(ccreated);
+    expect((updated.link as Record<string, unknown>).sign).toBe('-');
+    // Without --update the duplicate still errors.
+    const dup = spawnSync('node', [CLI_PATH, 'sys', 'link', 'P1', 'R1', '--sign', 'plus', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(dup.status).not.toBe(0);
+    expect(`${dup.stdout}${dup.stderr}`).toContain('CAUSAL_LINK_EXISTS');
+  });
+
+  it.skipIf(!hasBuild)('R3-P1: sys simulate --direction error names the flag (missing, bad, positional)', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    for (const args of [['sys', 'simulate', 'P1'], ['sys', 'simulate', 'P1', '--direction', 'sideways'], ['sys', 'simulate', 'P1', 'up']]) {
+      const r = spawnSync('node', [CLI_PATH, ...args, '--format', 'json'], { env, encoding: 'utf8' });
+      expect(r.status).not.toBe(0);
+      const out = `${r.stdout}${r.stderr}`;
+      expect(out).toContain('VALIDATION_ERROR');
+      expect(out).toContain('--direction');
+    }
+  });
+});
+
+
+describe('upsertCausalLink (round 3)', () => {
+  it('updates an existing link in place, preserving id and created', () => {
+    const server = new AtomOfThoughtsServer(5);
+    seed(server, [['P1', 'premise'], ['R1', 'reasoning']]);
+    const created = server.addCausalLink({ from: 'P1', to: 'R1', sign: '+', gain: 'low', label: 'drives' });
+    const { link, updated } = server.upsertCausalLink({ from: 'P1', to: 'R1', sign: '-', gain: 'high' });
+    expect(updated).toBe(true);
+    expect(link.id).toBe(created.id);
+    expect(link.created).toBe(created.created);
+    expect(link.sign).toBe('-');
+    expect(link.gain).toBe('high');
+    expect(link.label).toBeUndefined(); // omitted label clears the old one
+    expect(server.getCausalLinks()).toHaveLength(1);
+  });
+
+  it('creates when the pair is absent (updated:false)', () => {
+    const server = new AtomOfThoughtsServer(5);
+    seed(server, [['P1', 'premise'], ['R1', 'reasoning']]);
+    const { link, updated } = server.upsertCausalLink({ from: 'P1', to: 'R1', sign: '+' });
+    expect(updated).toBe(false);
+    expect(link.id).toBe('cl:P1>R1');
+    expect(link.gain).toBe('med');
+  });
+
+  it('rejects refuted and missing endpoints like addCausalLink', () => {
+    const server = new AtomOfThoughtsServer(5);
+    seed(server, [['P1', 'premise'], ['H1', 'hypothesis']]);
+    server.processAtom({ atomId: 'V1', atomType: 'verification', content: 'refutes', dependencies: ['H1'], confidence: 0.9, isVerified: true, polarity: 'refutes' });
+    expect(() => server.upsertCausalLink({ from: 'H1', to: 'P1', sign: '+' })).toThrow(/refuted/i);
+    expect(() => server.upsertCausalLink({ from: 'P1', to: 'GHOST', sign: '+' })).toThrow(/not found/i);
+  });
 });

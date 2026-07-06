@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added — systems-thinking layer (causal loops, feedback, control, emergence)
+
+A signed-causal graph over the same atoms, complementing the epistemic AoT DAG. The DAG answers "what we believe and why"; the systems layer answers "how the believed system behaves". Confidence flows from AoT into loop weighting; refuted atoms are excluded; verification atoms double as control-loop sensors.
+
+- **Causal links** (`Session.causalLinks`, backward-compatible): `aot sys link <from> <to> --sign +|- [--gain low|med|high] [--label ...] [--update]`, `aot sys unlink`. Signed influence (`+` same direction, `-` opposite) distinct from epistemic dependencies; one link per (from,to); `--update` idempotently upserts (preserving id/created). Refuted atoms cannot be linked.
+- **Feedback-loop analysis** `aot sys loops`: bounded enumeration (≤ length 12, ≤ 500 loops, `truncated` flag), reinforcing/balancing classification (even count of `-` = reinforcing), loop gain, AoT-confidence weighting, and control-theoretic role mapping — verification→sensor, hypothesis/reasoning→actuator, conclusion→goal, external disturbances — with open-loop-risk detection.
+- **Leverage analysis** `aot sys leverage [--top N]`: ranks atoms by systemic influence (loop hub-ness, causal out-degree, reinforcing/balancing driver role, effective confidence), normalized scores with rationale codes.
+- **Qualitative simulation** `aot sys simulate <atomId> --direction up|down`: propagates a perturbation through signed edges with loop damping; classifies effects `first-order` / `loop-mediated` / `emergent`; reports ambiguous and emergent atoms. Deterministic and permutation-invariant.
+- **Emergence/systems lint** `aot sys lint [--gate] [--failOn code,...]`: reinforcing-compounding risk, loop-contradicts-conclusion, open-loop balancing risk, orphan/self/duplicate links, loop-enumeration truncation.
+- **Rendering**: `aot graph` renders causal edges in all four formats — mermaid dashed `-.->|label|`, dot dashed purple `#9467bd`, Obsidian canvas orange `bottom→top` edges, ASCII-tree `Causal links:` section. Output is byte-identical to prior versions when a graph has no causal links. Causal links round-trip through export/import.
+- `aot analyze` never reports causal cycles as dependency-cycle issues — feedback loops are legal.
+
 ### Added — friction burn-down (63-item backlog from the self-improvement loop)
 
 - **Refuting evidence is first-class.** Verification atoms carry a `polarity` (`supports`, default, or `refutes`; CLI `--refutes`, `aot set --polarity`). A verified refuting verification marks its dependencies `isRefuted` (and un-verifies them) instead of asserting the opposite of the evidence; refuting a conclusion removes it from `verifiedConclusions` and blocks termination. Refuted atoms have effective confidence 0, appear in `analyze` under `refuted`, and trigger `refuted_support`/`refuted_conclusion` lints.

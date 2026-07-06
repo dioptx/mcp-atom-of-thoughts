@@ -200,6 +200,31 @@ export class AtomOfThoughtsServer {
     return created;
   }
 
+  /**
+   * Idempotent upsert: create the (from,to) link, or update its sign/gain/
+   * label in place while PRESERVING its id and created timestamp. Same
+   * validation as addCausalLink (endpoints exist and are not refuted).
+   * addCausalLink is intentionally left unchanged (its shape is pinned).
+   */
+  public upsertCausalLink(link: { from: string; to: string; sign: CausalSign; gain?: CausalGain; label?: string }, sessionId?: string): { link: CausalLink; updated: boolean } {
+    const session = this.getSession(sessionId);
+    for (const endpoint of [link.from, link.to]) {
+      const atom = session.atoms[endpoint];
+      if (!atom) throw new Error(`Atom with ID ${endpoint} not found`);
+      if (atom.isRefuted) throw new Error(`Cannot causally link refuted atom ${endpoint}: causal analysis excludes refuted atoms`);
+    }
+    session.causalLinks ??= [];
+    const existing = session.causalLinks.find(l => l.from === link.from && l.to === link.to);
+    if (existing) {
+      existing.sign = link.sign;
+      existing.gain = link.gain ?? 'med';
+      if (link.label) existing.label = link.label;
+      else delete existing.label;
+      return { link: existing, updated: true };
+    }
+    return { link: this.addCausalLink(link, sessionId), updated: false };
+  }
+
   /** Removes ALL entries matching (from,to) — duplicates can only enter via hand-edited state. */
   public removeCausalLink(from: string, to: string, sessionId?: string): CausalLink {
     const session = this.getSession(sessionId);

@@ -71,7 +71,12 @@ function withDomainErrors<T>(fn: () => T): T {
       [/nothing to update/i, 'NO_FIELDS', 'Pass at least one of --content/--confidence/--verified/--polarity/--deps/--evidence.'],
     ];
     for (const [pattern, code, hint] of rules) {
-      if (pattern.test(message)) throw new Errors.IncurError({ code, message, hint, cause: error instanceof Error ? error : undefined });
+      if (pattern.test(message)) {
+        // Omit `cause` when it would only echo `message` — the framework
+        // renders the cause as a "Details: ..." line, duplicating the message.
+        const causeAddsDetail = error instanceof Error && error.message !== message;
+        throw new Errors.IncurError({ code, message, hint, cause: causeAddsDetail ? error : undefined });
+      }
     }
     throw error;
   }
@@ -1328,12 +1333,14 @@ sys.command('link', {
     sign: CausalSignSchema.optional().describe('(required) Causal sign: +/plus/pos (same direction) or -/minus/neg (opposite)'),
     gain: CausalGainSchema.default('med').describe('Influence strength: low, med, or high'),
     label: z.string().optional().describe('Optional human label for the link'),
+    update: z.boolean().optional().describe('Idempotent upsert: update the link in place if it exists (preserving id/created), else create it'),
     sessionId: z.string().optional().describe('Session (default active)'),
   }),
   output: AnyOutput,
   examples: [
     { args: { from: 'H1', to: 'P1' }, options: { sign: 'minus' }, description: 'H1 suppresses P1 (balancing influence)' },
     { args: { from: 'P1', to: 'R1' }, options: { sign: 'plus', gain: 'high' }, description: 'Strong same-direction influence' },
+    { args: { from: 'P1', to: 'R1' }, options: exampleOptions({ sign: 'plus', update: true }), description: 'Ensure this signed edge exists (create or update in place)' },
   ],
   run({ args, options }) {
     return withStateLock(() => withDomainErrors(() => {
@@ -1347,13 +1354,24 @@ sys.command('link', {
       if (options.sign === undefined) {
         throw new Error('missing required option --sign (use --sign plus, --sign minus, or --sign=-)');
       }
-      const link = server.addCausalLink({
+      const payload = {
         from: args.from,
         to: args.to,
         sign: normalizeCausalSign(options.sign),
         gain: options.gain,
         label: options.label,
-      }, options.sessionId);
+      };
+      if (options.update) {
+        const { link, updated } = server.upsertCausalLink(payload, options.sessionId);
+        saveServer(server);
+        return {
+          status: 'success',
+          sessionId: options.sessionId ?? server.getActiveSessionId(),
+          link: { ...link, createdIso: new Date(link.created).toISOString() },
+          updated,
+        };
+      }
+      const link = server.addCausalLink(payload, options.sessionId);
       saveServer(server);
       return {
         status: 'success',
@@ -1446,7 +1464,9 @@ sys.command('simulate', {
   description: 'Propagate a hypothetical up/down perturbation at one atom through the signed causal graph (damped, loop-capped) and report per-atom direction, strength, and provenance (first-order / loop-mediated / emergent). Read-only.',
   args: z.object({ atomId: z.string().describe('Source atom ID to perturb') }),
   options: z.object({
-    direction: z.enum(['up', 'down']).describe('Perturbation direction at the source atom'),
+    direction: z.enum(['up', 'down'], {
+      error: 'Required option --direction must be "up" or "down"',
+    }).describe('Perturbation direction at the source atom'),
     sessionId: z.string().optional().describe('Session (default active)'),
     from: z.string().optional().describe('Simulate over a graph file (aot export output or GraphData JSON with causalLinks) instead of session state'),
   }),

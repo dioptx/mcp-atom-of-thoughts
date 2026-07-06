@@ -1,4 +1,4 @@
-import { GraphData, GraphNode } from './types.js';
+import { CausalLink, GraphData, GraphNode } from './types.js';
 
 export type RenderFormat = 'tree' | 'mermaid' | 'dot' | 'canvas';
 
@@ -13,6 +13,48 @@ const TYPE_LETTER: Record<string, string> = {
 function truncate(text: string, max = 60): string {
   const oneLine = text.replace(/\s+/g, ' ').trim();
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine;
+}
+
+// ---------------------------------------------------------------------------
+// Causal (systems) layer rendering — shared preprocessing + per-format edges.
+// The dependency-tree/DAG body of every renderer is unchanged; causal edges
+// are appended so output is byte-identical when a graph has no causal links.
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a graph's causal links for rendering: drop links with either
+ * endpoint missing from the node set (silently), keep self-loops, and sort
+ * deterministically (from, to, id). Absent/empty → [] so today's output is
+ * unchanged.
+ */
+function normalizeCausalLinksForRender(graph: GraphData): CausalLink[] {
+  const ids = new Set(graph.nodes.map(node => node.id));
+  return (graph.causalLinks ?? [])
+    .filter(link => ids.has(link.from) && ids.has(link.to))
+    .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.id.localeCompare(b.id));
+}
+
+/**
+ * EDGE_LABEL composition (single rule, all formats): `{sign}{/gain if
+ * low|high}{ + ' ' + label if present}`, whitespace-collapsed and truncated
+ * at 40 chars. Minus is ASCII `-` (CausalSign). med/undefined gain adds no
+ * suffix.
+ */
+function causalEdgeLabel(link: CausalLink): string {
+  const gainSuffix = link.gain === 'low' || link.gain === 'high' ? `/${link.gain}` : '';
+  const label = (link.label ?? '').replace(/\s+/g, ' ').trim();
+  const composed = label ? `${link.sign}${gainSuffix} ${label}` : `${link.sign}${gainSuffix}`;
+  return truncate(composed, 40);
+}
+
+/** Mermaid edge-label escapes. Kept separate from mermaidEscape (node labels). */
+function mermaidEdgeLabelEscape(text: string): string {
+  return text.replace(/"/g, '#quot;').replace(/\|/g, '#124;').replace(/\s+/g, ' ');
+}
+
+/** DOT label escapes: backslash first, then quote (order matters). */
+function dotLabelEscape(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function nodeLabel(node: GraphNode, max = 60): string {
@@ -49,6 +91,16 @@ export function renderTree(graph: GraphData): string {
     kids.forEach((kid, index) => render(kid, childPrefix, index === kids.length - 1, false));
   };
   roots.forEach(root => render(root.id, '', true, true));
+
+  const causal = normalizeCausalLinksForRender(graph);
+  if (causal.length > 0) {
+    lines.push('', 'Causal links:');
+    for (const link of causal) {
+      const gainSuffix = link.gain === 'low' || link.gain === 'high' ? `/${link.gain}` : '';
+      const label = (link.label ?? '').replace(/\s+/g, ' ').trim();
+      lines.push(`  ${link.from} --(${link.sign}${gainSuffix})--> ${link.to}${label ? `  ${label}` : ''}`);
+    }
+  }
   return lines.join('\n');
 }
 
@@ -64,6 +116,9 @@ export function renderMermaid(graph: GraphData): string {
   for (const link of graph.links) {
     const label = link.relation && link.relation !== 'depends_on' ? `|${link.relation}|` : '';
     lines.push(`  ${link.source} -->${label} ${link.target}`);
+  }
+  for (const link of normalizeCausalLinksForRender(graph)) {
+    lines.push(`  ${link.from} -.->|${mermaidEdgeLabelEscape(causalEdgeLabel(link))}| ${link.to}`);
   }
   const verified = graph.nodes.filter(node => node.isVerified).map(node => node.id);
   if (verified.length > 0) {
@@ -82,6 +137,9 @@ export function renderDot(graph: GraphData): string {
   for (const link of graph.links) {
     const label = link.relation && link.relation !== 'depends_on' ? ` [label="${link.relation}"]` : '';
     lines.push(`  "${link.source}" -> "${link.target}"${label};`);
+  }
+  for (const link of normalizeCausalLinksForRender(graph)) {
+    lines.push(`  "${link.from}" -> "${link.to}" [style=dashed, label="${dotLabelEscape(causalEdgeLabel(link))}", color="#9467bd"];`);
   }
   lines.push('}');
   return lines.join('\n');
@@ -117,7 +175,7 @@ export function renderCanvas(graph: GraphData): string {
       color: TYPE_COLOR[node.type],
     };
   });
-  const edges = graph.links.map((link, index) => ({
+  const edges: Array<Record<string, unknown>> = graph.links.map((link, index) => ({
     id: `edge-${index}`,
     fromNode: link.source,
     fromSide: 'right',
@@ -125,6 +183,19 @@ export function renderCanvas(graph: GraphData): string {
     toSide: 'left',
     ...(link.relation && link.relation !== 'depends_on' ? { label: link.relation } : {}),
   }));
+  // Causal edges: bottom→top routing keeps them visually orthogonal to the
+  // dep right→left flow. `label` is always present (sign at minimum).
+  normalizeCausalLinksForRender(graph).forEach((link, index) => {
+    edges.push({
+      id: `causal-edge-${index}`,
+      fromNode: link.from,
+      fromSide: 'bottom',
+      toNode: link.to,
+      toSide: 'top',
+      color: '2',
+      label: causalEdgeLabel(link),
+    });
+  });
   return JSON.stringify({ nodes, edges }, null, 2);
 }
 
