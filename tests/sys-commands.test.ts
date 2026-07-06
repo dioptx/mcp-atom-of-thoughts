@@ -209,6 +209,109 @@ describe('aot sys commands (built CLI)', () => {
     expect(fromFile.causalLinkCount).toBe(1);
   });
 
+  it.skipIf(!hasBuild)('sys leverage ranks atoms with --top slicing', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    runJson(['fast', 'reasoning', 'R1', 'b']);
+    runJson(['fast', 'reasoning', 'R2', 'c']);
+    runJson(['sys', 'link', 'P1', 'R1', '--sign', 'plus', '--gain', 'high']);
+    runJson(['sys', 'link', 'R1', 'P1', '--sign', 'plus', '--gain', 'high']);
+    runJson(['sys', 'link', 'P1', 'R2', '--sign', 'plus']);
+
+    const full = runJson(['sys', 'leverage']);
+    expect(full.source).toMatch(/^session:/);
+    expect(full.truncated).toBe(false);
+    expect(full.totalAtoms).toBe(3);
+    const points = full.leveragePoints as Array<Record<string, unknown>>;
+    expect(points).toHaveLength(3);
+    expect(points[0].atomId).toBe('P1'); // hub: 2 out-links + reinforcing loop
+    expect(points[0].rank).toBe(1);
+    expect(points[0].score).toBe(1);
+    expect(points[0].rationaleCodes).toContain('HIGH_CAUSAL_OUT_DEGREE');
+
+    const top = runJson(['sys', 'leverage', '--top', '1']);
+    expect(top.leveragePoints as unknown[]).toHaveLength(1);
+  });
+
+  it.skipIf(!hasBuild)('sys simulate propagates a perturbation with source/truncated envelope', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    runJson(['fast', 'reasoning', 'R1', 'b']);
+    runJson(['sys', 'link', 'P1', 'R1', '--sign', 'plus']);
+    runJson(['sys', 'link', 'R1', 'P1', '--sign', 'minus']);
+
+    const sim = runJson(['sys', 'simulate', 'P1', '--direction', 'up']);
+    expect(sim.source).toMatch(/^session:/);
+    expect(sim.truncated).toBe(false);
+    expect(sim.sourceAtomId).toBe('P1');
+    expect(sim.inputDirection).toBe('up');
+    const effects = sim.effects as Array<Record<string, unknown>>;
+    expect(effects).toHaveLength(1);
+    expect(effects[0].atomId).toBe('R1');
+    expect(sim.loopsTraversed).toEqual(['loop:P1>R1']);
+
+    const missing = spawnSync('node', [CLI_PATH, 'sys', 'simulate', 'GHOST', '--direction', 'up', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(missing.status).not.toBe(0);
+    expect(`${missing.stdout}${missing.stderr}`).toContain('ATOM_NOT_FOUND');
+  });
+
+  it.skipIf(!hasBuild)('sys lint reports issues with counts; --gate exits 1; --failOn filters', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    runJson(['fast', 'premise', 'P2', 'b']);
+    runJson(['sys', 'link', 'P1', 'P2', '--sign', 'minus']);
+    runJson(['sys', 'link', 'P2', 'P1', '--sign', 'plus']);
+
+    const lint = runJson(['sys', 'lint']);
+    expect(lint.source).toMatch(/^session:/);
+    expect(lint.truncated).toBe(false);
+    const issues = lint.issues as Array<Record<string, unknown>>;
+    expect(issues.map(i => i.code)).toContain('BALANCING_LOOP_NO_SENSOR');
+    expect((lint.counts as Record<string, number>).BALANCING_LOOP_NO_SENSOR).toBe(1);
+    expect(lint.gate).toBeUndefined(); // no gate envelope without --gate
+
+    const gated = spawnSync('node', [CLI_PATH, 'sys', 'lint', '--gate=true', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(gated.status).toBe(1);
+    const gatedPayload = JSON.parse(gated.stdout) as Record<string, unknown>;
+    expect((gatedPayload.gate as Record<string, unknown>).failed).toBe(true);
+
+    // --failOn excluding the firing code (incl. truncation-style exclusion) passes the gate.
+    const excused = spawnSync('node', [CLI_PATH, 'sys', 'lint', '--gate=true', '--failOn', 'LOOP_ENUMERATION_TRUNCATED', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(excused.status).toBe(0);
+    const excusedPayload = JSON.parse(excused.stdout) as Record<string, unknown>;
+    expect((excusedPayload.gate as Record<string, unknown>).failed).toBe(false);
+    expect((excusedPayload.gate as Record<string, unknown>).failOn).toEqual(['LOOP_ENUMERATION_TRUNCATED']);
+  });
+
+  it.skipIf(!hasBuild)('missing --sign: atom existence beats MISSING_SIGN, no raw zod dump, plus still works', () => {
+    runJson(['fast', 'premise', 'P1', 'a']);
+    runJson(['fast', 'reasoning', 'R1', 'b']);
+
+    // 1. Unknown atom without --sign: the atom error wins.
+    const ghost = spawnSync('node', [CLI_PATH, 'sys', 'link', 'GHOST', 'R1', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(ghost.status).not.toBe(0);
+    expect(`${ghost.stdout}${ghost.stderr}`).toContain('ATOM_NOT_FOUND');
+
+    // 2. Valid atoms without --sign: friendly MISSING_SIGN domain error.
+    const unsigned = spawnSync('node', [CLI_PATH, 'sys', 'link', 'P1', 'R1', '--format', 'json'], { env, encoding: 'utf8' });
+    expect(unsigned.status).not.toBe(0);
+    const output = `${unsigned.stdout}${unsigned.stderr}`;
+    expect(output).toContain('MISSING_SIGN');
+    expect(output).toContain('missing required option --sign');
+    expect(output).not.toContain('VALIDATION_ERROR');
+
+    // 3. Regression: --sign plus still succeeds.
+    const linked = runJson(['sys', 'link', 'P1', 'R1', '--sign', 'plus']);
+    expect((linked.link as Record<string, unknown>).id).toBe('cl:P1>R1');
+  });
+
+  it.skipIf(!hasBuild)('sys help paths exit 0 with usage text (regression pin)', () => {
+    const sysHelp = spawnSync('node', [CLI_PATH, 'sys', '--help'], { env, encoding: 'utf8' });
+    expect(sysHelp.status).toBe(0);
+    expect(`${sysHelp.stdout}${sysHelp.stderr}`).toMatch(/link/);
+    const linkHelp = spawnSync('node', [CLI_PATH, 'sys', 'link', '--help'], { env, encoding: 'utf8' });
+    expect(linkHelp.status).toBe(0);
+    expect(`${linkHelp.stdout}${linkHelp.stderr}`).toMatch(/--sign/);
+    expect(`${linkHelp.stdout}${linkHelp.stderr}`).toMatch(/\(required\)/);
+  });
+
   it.skipIf(!hasBuild)('reset clears causal links via the CLI too', () => {
     runJson(['fast', 'premise', 'P1', 'a']);
     runJson(['fast', 'reasoning', 'R1', 'b']);

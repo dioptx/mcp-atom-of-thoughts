@@ -16,7 +16,7 @@ import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, resol
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
-import { analyzeLoops } from './systems-analysis.js';
+import { analyzeLoops, analyzeSystems, computeLeverage, enumerateLoops, simulate } from './systems-analysis.js';
 import { renderGraph } from './graph-render.js';
 import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint, positionalFlagMisuseHint, rewriteNegatedBoolFlags } from './cli-hints.js';
 
@@ -56,6 +56,7 @@ function withDomainErrors<T>(fn: () => T): T {
       // Systems-layer rules FIRST: the generic /cycle/i rule below would
       // shadow them (systems-layer messages must say "causal loop", never
       // the bare word "cycle").
+      [/missing required option --sign/i, 'MISSING_SIGN', 'Causal sign is + (same direction) or - (opposite): --sign plus | --sign minus | --sign=-'],
       [/causal link .* already exists/i, 'CAUSAL_LINK_EXISTS', 'One causal link per (from,to) pair; `aot sys unlink` it first to change sign/gain.'],
       [/causal link .* not found/i, 'CAUSAL_LINK_NOT_FOUND', 'Use `aot sys loops` or `aot export` to inspect existing causal links.'],
       [/refuted atom/i, 'REFUTED_ATOM', 'Refuted atoms are excluded from causal analysis; link an active atom instead.'],
@@ -1272,8 +1273,8 @@ cli.command('graph', {
     let graph: GraphData;
     let sourceLabel: string;
     if (options.from) {
-      const { atoms, atomOrder, source } = atomsForInspection({ from: options.from });
-      graph = exportGraph(atoms, atomOrder, options.title);
+      const { atoms, atomOrder, causalLinks, source } = atomsForInspection({ from: options.from });
+      graph = exportGraph(atoms, atomOrder, options.title, causalLinks);
       sourceLabel = source;
     } else {
       const current = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
@@ -1321,7 +1322,10 @@ sys.command('link', {
     to: z.string().describe('Effect atom ID'),
   }),
   options: z.object({
-    sign: CausalSignSchema.describe('Causal sign: +/plus/pos (same direction) or -/minus/neg (opposite)'),
+    // Schema-optional on purpose: it is the only way to reach run() and emit
+    // a domain error (MISSING_SIGN, after atom validation) instead of a raw
+    // zod enum dump. The flag is still required.
+    sign: CausalSignSchema.optional().describe('(required) Causal sign: +/plus/pos (same direction) or -/minus/neg (opposite)'),
     gain: CausalGainSchema.default('med').describe('Influence strength: low, med, or high'),
     label: z.string().optional().describe('Optional human label for the link'),
     sessionId: z.string().optional().describe('Session (default active)'),
@@ -1334,6 +1338,15 @@ sys.command('link', {
   run({ args, options }) {
     return withStateLock(() => withDomainErrors(() => {
       const server = makeServer();
+      // Atom existence beats missing --sign: unknown IDs are the first thing
+      // to fix before any link can succeed.
+      const atoms = server.getAtoms(options.sessionId);
+      for (const endpoint of [args.from, args.to]) {
+        if (!atoms[endpoint]) throw new Error(`Atom with ID ${endpoint} not found`);
+      }
+      if (options.sign === undefined) {
+        throw new Error('missing required option --sign (use --sign plus, --sign minus, or --sign=-)');
+      }
       const link = server.addCausalLink({
         from: args.from,
         to: args.to,
@@ -1397,6 +1410,93 @@ sys.command('loops', {
         totalLoopCount: loops.length,
         truncated,
         loops: filtered.map(loop => ({ ...loop, control: controlByLoop.get(loop.id) })),
+      };
+    });
+  },
+});
+
+sys.command('leverage', {
+  description: 'Rank atoms by systemic leverage: loop participation, causal out-degree, and confidence-weighted loop dominance, with rationale codes. Read-only.',
+  options: z.object({
+    sessionId: z.string().optional().describe('Session (default active)'),
+    from: z.string().optional().describe('Analyze a graph file (aot export output or GraphData JSON with causalLinks) instead of session state'),
+    top: z.coerce.number().optional().describe('Return only the top N leverage points'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { description: 'Rank all atoms by systemic leverage' },
+    { options: exampleOptions({ top: 3 }), description: 'Only the three highest-leverage atoms' },
+  ],
+  run({ options }) {
+    return withDomainErrors(() => {
+      const { atoms, causalLinks, source } = atomsForInspection(options);
+      const { loops, truncated } = enumerateLoops({ atoms, causalLinks });
+      const leveragePoints = computeLeverage({ atoms, causalLinks }, loops);
+      return {
+        source,
+        truncated,
+        totalAtoms: Object.keys(atoms).length,
+        leveragePoints: options.top !== undefined ? leveragePoints.slice(0, options.top) : leveragePoints,
+      };
+    });
+  },
+});
+
+sys.command('simulate', {
+  description: 'Propagate a hypothetical up/down perturbation at one atom through the signed causal graph (damped, loop-capped) and report per-atom direction, strength, and provenance (first-order / loop-mediated / emergent). Read-only.',
+  args: z.object({ atomId: z.string().describe('Source atom ID to perturb') }),
+  options: z.object({
+    direction: z.enum(['up', 'down']).describe('Perturbation direction at the source atom'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+    from: z.string().optional().describe('Simulate over a graph file (aot export output or GraphData JSON with causalLinks) instead of session state'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { args: { atomId: 'H1' }, options: { direction: 'up' as const }, description: 'What moves when H1 increases?' },
+    { args: { atomId: 'P1' }, options: { direction: 'down' as const }, description: 'Downstream effect of P1 decreasing' },
+  ],
+  run({ args, options }) {
+    return withDomainErrors(() => {
+      const { atoms, causalLinks, source } = atomsForInspection(options);
+      const result = simulate({ atoms, causalLinks }, args.atomId, options.direction);
+      // SimulationResult deliberately has no truncated field; derive it from
+      // enumeration so provenance can be read as best-effort when true.
+      const { truncated } = enumerateLoops({ atoms, causalLinks });
+      return { source, truncated, ...result };
+    });
+  },
+});
+
+sys.command('lint', {
+  description: 'Systems lint over the causal graph: compounding reinforcing loops, sensorless balancing loops, loops contradicting verified conclusions, orphan/self/duplicate links, and truncated enumeration. Gate mode for CI: exit 1 on issues. Read-only.',
+  options: z.object({
+    sessionId: z.string().optional().describe('Session (default active)'),
+    from: z.string().optional().describe('Lint a graph file (aot export output or GraphData JSON with causalLinks) instead of session state'),
+    gate: z.boolean().optional().describe('Exit with code 1 when systems issues are found (CI gate mode)'),
+    failOn: z.string().optional().describe('Comma-separated issue codes that trigger gate failure (default: all)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { description: 'Lint the active session causal graph' },
+    { options: exampleOptions({ gate: true, failOn: 'REINFORCING_COMPOUNDING_RISK,LOOP_CONTRADICTS_CONCLUSION' }), description: 'CI gate: fail only on behavioral risks' },
+  ],
+  run({ options }) {
+    return withDomainErrors(() => {
+      const { atoms, causalLinks, source } = atomsForInspection(options);
+      const analysis = analyzeSystems({ atoms, causalLinks });
+      const counts: Record<string, number> = {};
+      for (const issue of analysis.issues) counts[issue.code] = (counts[issue.code] ?? 0) + 1;
+      const failCodes = options.failOn ? new Set(parseDeps(options.failOn)) : null;
+      const gateIssues = failCodes ? analysis.issues.filter(issue => failCodes.has(issue.code)) : analysis.issues;
+      if (options.gate && gateIssues.length > 0) {
+        process.exitCode = 1;
+      }
+      return {
+        source,
+        truncated: analysis.truncated,
+        issues: analysis.issues,
+        counts,
+        ...(options.gate ? { gate: { failed: gateIssues.length > 0, failingIssueCount: gateIssues.length, failOn: failCodes ? [...failCodes] : 'all' } } : {}),
       };
     });
   },
