@@ -54,6 +54,44 @@ export function booleanOptionNames(schema: unknown): Set<string> {
 }
 
 /**
+ * Rewrites kebab-case `--no-br`-style tokens to the camelCase boolean flag
+ * the command actually declares (`--noBr`). The framework intercepts
+ * `--no-X` as boolean negation of flag `X`, so flags whose OWN name starts
+ * with `no` (noBr, noBv, noGit, noBeads, noBrInit, ...) are unreachable in
+ * the kebab form the help screen prints. Mutates nothing; returns a new argv.
+ */
+export function rewriteNegatedBoolFlags(argv: string[], booleanFlags: ReadonlySet<string>): string[] {
+  return argv.map(token => {
+    if (!token.startsWith('--no-')) return token;
+    const camel = kebabToCamel(token.slice(2).split('=')[0]);
+    if (!booleanFlags.has(camel)) return token;
+    const eq = token.indexOf('=');
+    return eq >= 0 ? `--${camel}${token.slice(eq)}` : `--${camel}`;
+  });
+}
+
+/**
+ * Detects `aot new --sessionId x` / `aot fast --atomId P1`-style misuse where
+ * a POSITIONAL argument of the invoked command is passed as a flag. The
+ * framework's bare "Unknown flag" gives no clue the name exists as a
+ * positional. Returns a hint or null.
+ */
+export function positionalFlagMisuseHint(argv: string[], positionalNames: readonly string[]): string | null {
+  if (positionalNames.length === 0) return null;
+  for (const token of argv) {
+    if (!token.startsWith('--')) continue;
+    const name = kebabToCamel(token.slice(2).split('=')[0]);
+    if (positionalNames.includes(name)) {
+      return [
+        `Unknown flag: --${name}. "${name}" is a positional argument of this command, not a flag.`,
+        `Pass it positionally, e.g.: aot ${argv[0]} ${positionalNames.map(p => `<${p}>`).join(' ')}`,
+      ].join('\n');
+    }
+  }
+  return null;
+}
+
+/**
  * Detects the bare-boolean-flag footgun: `--verified false` parses as
  * `verified: true` (bare boolean flag) with `false` silently dropped as an
  * extra positional, so the user writes the WRONG state with a success

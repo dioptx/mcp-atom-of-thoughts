@@ -150,7 +150,7 @@ describe('aot graph output (built CLI)', () => {
     expect(stdout).toContain('raw render premise');
     expect(stdout).not.toContain('rendered:');
     expect(stdout).not.toContain('\\n');
-    expect(stderr).toContain('session=');
+    expect(stderr).toContain('session:');
     expect(stderr).toContain('graphFormat=tree');
   });
 
@@ -166,7 +166,7 @@ describe('aot graph output (built CLI)', () => {
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.format).toBe('tree');
-    expect(typeof parsed.sessionId).toBe('string');
+    expect(typeof parsed.source).toBe('string');
     expect(parsed.rendered).toContain('P1');
   });
 

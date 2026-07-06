@@ -33,7 +33,7 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       const sessionIdRaw = inputObj.sessionId;
       const sessionIdInput = typeof sessionIdRaw === 'string' && sessionIdRaw.length > 0 ? sessionIdRaw : undefined;
 
-      this.ensureActiveSessionForInput({
+      const autoSpawnedSession = this.ensureActiveSessionForInput({
         sessionId: sessionIdInput,
         dependencies: Array.isArray(inputObj.dependencies) ? inputObj.dependencies : undefined,
       });
@@ -49,8 +49,12 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       }
 
       const validatedInput = this.validateAtomData(input);
-      this.assertNoCycle(session, validatedInput.atomId, validatedInput.dependencies);
+      // Same pre-insert pipeline as the full server: dependency existence,
+      // cycle guard, depth derivation. Fast mode used to skip all three,
+      // silently accepting ghost deps and leaving depth undefined.
+      this.prepareAtomForInsert(session, validatedInput);
 
+      const overwritten = session.atoms[validatedInput.atomId] !== undefined;
       session.atoms[validatedInput.atomId] = validatedInput;
 
       if (!session.atomOrder.includes(validatedInput.atomId)) {
@@ -61,19 +65,17 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
       const formattedAtom = this.formatAtom(validatedInput);
       console.error(formattedAtom);
 
-      if (validatedInput.atomType === 'verification' && validatedInput.isVerified) {
-        validatedInput.dependencies.forEach(depId => {
-          if (session.atoms[depId]) {
-            // verifyAtom is protected on the parent and accepts a session
-            (this as unknown as { verifyAtom: (s: Session, id: string, v: boolean) => void })
-              .verifyAtom(session, depId, true);
-          }
-        });
+      // Same unified verification path as the full server (polarity-aware,
+      // verifiedConclusions bookkeeping, gated auto-conclusion). Fast mode no
+      // longer auto-spawns conclusions for merely-confident UNVERIFIED
+      // hypotheses — that polluted graphs with unsupported conclusions.
+      if (validatedInput.isVerified) {
+        (this as unknown as { verifyAtom: (s: Session, id: string, v: boolean) => void })
+          .verifyAtom(session, validatedInput.atomId, true);
       }
-
-      if (validatedInput.atomType === 'hypothesis' && validatedInput.confidence >= 0.8) {
-        (this as unknown as { suggestConclusion: (s: Session, atom: typeof validatedInput) => string })
-          .suggestConclusion(session, validatedInput);
+      if (validatedInput.atomType === 'hypothesis') {
+        (this as unknown as { maybeSuggestConclusion: (s: Session, atom: typeof validatedInput) => string | null })
+          .maybeSuggestConclusion(session, validatedInput);
       }
 
       const shouldTerminate = (this as unknown as { shouldTerminate: (s: Session) => boolean })
@@ -90,9 +92,12 @@ export class AtomOfThoughtsLightServer extends AtomOfThoughtsServer {
         atomType: validatedInput.atomType,
         isVerified: validatedInput.isVerified,
         confidence: validatedInput.confidence,
+        depth: validatedInput.depth,
         sessionId: session.id,
         atomsCount: Object.keys(session.atoms).length,
       };
+      if (overwritten) payload.overwritten = true;
+      if (autoSpawnedSession) payload.autoSpawnedSession = autoSpawnedSession;
       if (bestConclusion) {
         payload.bestConclusion = {
           atomId: bestConclusion.atomId,

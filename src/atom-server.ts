@@ -127,16 +127,17 @@ export class AtomOfThoughtsServer {
    * sessionId). Keeps the single-process server usable across multiple
    * problems without forcing the caller to manage sessions explicitly.
    */
-  protected ensureActiveSessionForInput(input: { sessionId?: string; dependencies?: unknown[] }): void {
-    if (input.sessionId) return;
+  protected ensureActiveSessionForInput(input: { sessionId?: string; dependencies?: unknown[] }): string | null {
+    if (input.sessionId) return null;
     const active = this.sessions[this.activeSessionId];
-    if (!active || active.status !== 'completed') return;
+    if (!active || active.status !== 'completed') return null;
     const hasDeps = Array.isArray(input.dependencies) && input.dependencies.length > 0;
-    if (hasDeps) return;
+    if (hasDeps) return null;
     // Auto-spawn
     const id = this.nextDefaultSessionId();
     this.sessions[id] = this.createSession(id);
     this.activeSessionId = id;
+    return id;
   }
 
   // -------------------------------------------------------------------------
@@ -173,7 +174,7 @@ export class AtomOfThoughtsServer {
       ? data.confidence as number
       : 0.7;
 
-    return {
+    const atom: AtomData = {
       atomId: data.atomId as string,
       content: data.content as string,
       atomType: data.atomType as AtomType,
@@ -183,6 +184,17 @@ export class AtomOfThoughtsServer {
       isVerified: data.isVerified as boolean || false,
       depth: data.depth as number | undefined,
     };
+    if (data.polarity === 'refutes' || data.polarity === 'supports') {
+      if (atom.atomType !== 'verification') {
+        throw new Error('polarity is only valid on verification atoms');
+      }
+      atom.polarity = data.polarity;
+    }
+    if (Array.isArray(data.evidence)) {
+      const evidence = (data.evidence as unknown[]).filter((e): e is string => typeof e === 'string' && e.length > 0);
+      if (evidence.length > 0) atom.evidence = evidence;
+    }
+    return atom;
   }
 
   protected formatAtom(atomData: AtomData): string {
@@ -209,6 +221,24 @@ export class AtomOfThoughtsServer {
   }
 
   /**
+   * Shared pre-insert pipeline for full AND light servers: dependency
+   * existence, cycle guard, depth derivation. Keeps fast/full semantics
+   * identical (fast used to skip all three).
+   */
+  protected prepareAtomForInsert(session: Session, atom: AtomData): void {
+    if (atom.dependencies.length > 0 && !this.validateDependencies(session, atom.dependencies)) {
+      const missing = atom.dependencies.filter(depId => session.atoms[depId] === undefined);
+      throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
+    }
+    this.assertNoCycle(session, atom.atomId, atom.dependencies);
+    if (atom.depth === undefined) {
+      const depthsOfDependencies = atom.dependencies
+        .map(depId => (session.atoms[depId]?.depth !== undefined ? session.atoms[depId].depth! : 0));
+      atom.depth = depthsOfDependencies.length > 0 ? Math.max(...depthsOfDependencies) + 1 : 0;
+    }
+  }
+
+  /**
    * Reject dependency sets that would create a cycle. Cycles are only
    * constructible by overwriting an existing atom with dependencies that
    * transitively reach it.
@@ -232,7 +262,7 @@ export class AtomOfThoughtsServer {
   // Direct mutation (CLI-facing)
   // -------------------------------------------------------------------------
 
-  public updateAtom(atomId: string, patch: { content?: string; confidence?: number; isVerified?: boolean; dependencies?: string[] }, sessionId?: string): AtomData {
+  public updateAtom(atomId: string, patch: { content?: string; confidence?: number; isVerified?: boolean; dependencies?: string[]; polarity?: 'supports' | 'refutes'; evidence?: string[] }, sessionId?: string): AtomData {
     const session = this.getSession(sessionId);
     const atom = session.atoms[atomId];
     if (!atom) throw new Error(`Atom with ID ${atomId} not found`);
@@ -250,10 +280,41 @@ export class AtomOfThoughtsServer {
       if (patch.confidence < 0 || patch.confidence > 1) throw new Error('Confidence must be between 0 and 1');
       atom.confidence = patch.confidence;
     }
+    if (patch.polarity !== undefined) {
+      if (atom.atomType !== 'verification') throw new Error('polarity is only valid on verification atoms');
+      atom.polarity = patch.polarity;
+    }
+    if (patch.evidence !== undefined) {
+      atom.evidence = patch.evidence.length > 0 ? patch.evidence : undefined;
+    }
     if (patch.isVerified !== undefined) {
       this.verifyAtom(session, atomId, patch.isVerified);
     }
     return atom;
+  }
+
+  /**
+   * Archive the session if its termination condition now holds (e.g. after a
+   * `set` bumped a verified conclusion past the threshold). Returns the
+   * termination status so callers can surface it.
+   */
+  public archiveIfTerminated(sessionId?: string): { shouldTerminate: boolean; reason: string; archived: boolean } {
+    const session = this.getSession(sessionId);
+    const status = this.getTerminationStatus(session.id);
+    let archived = false;
+    if (status.shouldTerminate && session.status !== 'completed') {
+      session.status = 'completed';
+      archived = true;
+      this.events?.emit({ kind: 'termination', t: Date.now(), reason: status.reason, sessionId: session.id });
+    }
+    return { shouldTerminate: status.shouldTerminate, reason: status.reason, archived };
+  }
+
+  /** Manually archive (or reopen) a session. */
+  public setSessionStatus(status: 'active' | 'completed', sessionId?: string): Session {
+    const session = this.getSession(sessionId);
+    session.status = status;
+    return session;
   }
 
   public removeAtom(atomId: string, sessionId?: string, force = false): { removed: string; detachedFrom: string[] } {
@@ -262,7 +323,7 @@ export class AtomOfThoughtsServer {
 
     const dependents = this.getDependentAtoms(session, atomId);
     if (dependents.length > 0 && !force) {
-      throw new Error(`Atom ${atomId} has dependents: [${dependents.join(', ')}]. Pass force to detach and remove.`);
+      throw new Error(`Atom ${atomId} has dependents: [${dependents.join(', ')}]. Pass --force to detach and remove.`);
     }
     for (const dependent of dependents) {
       session.atoms[dependent].dependencies = session.atoms[dependent].dependencies.filter(dep => dep !== atomId);
@@ -281,31 +342,71 @@ export class AtomOfThoughtsServer {
   // -------------------------------------------------------------------------
 
   protected verifyAtom(session: Session, atomId: string, isVerified: boolean) {
-    if (session.atoms[atomId]) {
-      session.atoms[atomId].isVerified = isVerified;
-      if (isVerified) {
-        this.events?.emit({ kind: 'atom_verified', t: Date.now(), atomId, confidence: session.atoms[atomId].confidence, sessionId: session.id });
-      }
+    const atom = session.atoms[atomId];
+    if (!atom) return;
 
-      if (isVerified && session.atoms[atomId].atomType === 'conclusion') {
+    atom.isVerified = isVerified;
+    if (isVerified) {
+      atom.isRefuted = undefined;
+      this.events?.emit({ kind: 'atom_verified', t: Date.now(), atomId, confidence: atom.confidence, sessionId: session.id });
+    }
+
+    if (atom.atomType === 'conclusion') {
+      if (isVerified && !session.verifiedConclusions.includes(atomId)) {
         session.verifiedConclusions.push(atomId);
-      } else if (!isVerified && session.atoms[atomId].atomType === 'conclusion') {
+      } else if (!isVerified) {
         session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
       }
+    }
 
-      if (isVerified && session.atoms[atomId].atomType === 'verification') {
-        const verifiedHypothesisIds = session.atoms[atomId].dependencies.filter(
-          depId => session.atoms[depId] && session.atoms[depId].atomType === 'hypothesis'
-        );
-
-        if (verifiedHypothesisIds.length > 0) {
-          verifiedHypothesisIds.forEach(hypId => {
-            session.atoms[hypId].isVerified = true;
-          });
-          this.checkForContraction(session, verifiedHypothesisIds);
+    // Verified verification atoms propagate according to their polarity.
+    // Refuting evidence marks targets refuted — it must never verify them.
+    // Supporting evidence verifies hypothesis/verification/conclusion deps;
+    // premises and reasoning are never silently flipped to verified.
+    if (isVerified && atom.atomType === 'verification') {
+      if (atom.polarity === 'refutes') {
+        for (const targetId of atom.dependencies) {
+          const target = session.atoms[targetId];
+          if (!target) continue;
+          target.isRefuted = true;
+          target.isVerified = false;
+          if (target.atomType === 'conclusion') {
+            session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== targetId);
+          }
         }
+      } else {
+        const hypothesisIds: string[] = [];
+        for (const targetId of atom.dependencies) {
+          const target = session.atoms[targetId];
+          if (!target) continue;
+          if (target.atomType === 'hypothesis') {
+            target.isVerified = true;
+            target.isRefuted = undefined;
+            hypothesisIds.push(targetId);
+            this.maybeSuggestConclusion(session, target);
+          } else if (target.atomType === 'conclusion' || target.atomType === 'verification') {
+            // Recurse so verifiedConclusions bookkeeping and nested
+            // verification chains stay consistent.
+            this.verifyAtom(session, targetId, true);
+          }
+        }
+        if (hypothesisIds.length > 0) this.checkForContraction(session, hypothesisIds);
       }
     }
+  }
+
+  /**
+   * Suggest a conclusion for a verified hypothesis with confidence >= 0.8,
+   * unless one already depends on it (prevents duplicate injections on
+   * overwrite/re-verification).
+   */
+  protected maybeSuggestConclusion(session: Session, hypothesis: AtomData): string | null {
+    if (hypothesis.atomType !== 'hypothesis' || !hypothesis.isVerified || hypothesis.confidence < 0.8) return null;
+    const alreadyConcluded = Object.values(session.atoms).some(
+      atom => atom.atomType === 'conclusion' && atom.dependencies.includes(hypothesis.atomId)
+    );
+    if (alreadyConcluded) return null;
+    return this.suggestConclusion(session, hypothesis);
   }
 
   public startDecomposition(atomId: string, sessionId?: string): string {
@@ -428,20 +529,42 @@ export class AtomOfThoughtsServer {
     return atMaxDepth || hasStrongConclusion;
   }
 
-  public getTerminationStatus(sessionId?: string): { shouldTerminate: boolean; reason: string } {
+  public getTerminationStatus(sessionId?: string): { shouldTerminate: boolean; reason: string; detail: Record<string, unknown> } {
     const session = this.getSession(sessionId);
-    const atMaxDepth = Object.values(session.atoms).some(atom => atom.depth !== undefined && atom.depth >= this.maxDepth);
-    const hasStrongConclusion = session.verifiedConclusions.some(id => session.atoms[id] && session.atoms[id].confidence >= 0.9);
+    const depths = Object.values(session.atoms).map(atom => atom.depth).filter((d): d is number => d !== undefined);
+    const maxAtomDepth = depths.length > 0 ? Math.max(...depths) : 0;
+    const atMaxDepth = maxAtomDepth >= this.maxDepth;
+    const verifiedConfidences = session.verifiedConclusions
+      .map(id => session.atoms[id]?.confidence)
+      .filter((c): c is number => c !== undefined);
+    const bestVerifiedConfidence = verifiedConfidences.length > 0 ? Math.max(...verifiedConfidences) : null;
+    const hasStrongConclusion = bestVerifiedConfidence !== null && bestVerifiedConfidence >= 0.9;
+
+    // Actionable detail: WHY the session does or does not terminate, so a
+    // "Continue reasoning" status is never a guessing game.
+    const detail = {
+      maxAtomDepth,
+      maxDepth: this.maxDepth,
+      verifiedConclusionCount: session.verifiedConclusions.length,
+      bestVerifiedConclusionConfidence: bestVerifiedConfidence,
+      conclusionConfidenceThreshold: 0.9,
+    };
 
     if (atMaxDepth && hasStrongConclusion) {
-      return { shouldTerminate: true, reason: 'Maximum depth reached and strong conclusion found' };
+      return { shouldTerminate: true, reason: 'Maximum depth reached and strong conclusion found', detail };
     } else if (atMaxDepth) {
-      return { shouldTerminate: true, reason: 'Maximum depth reached' };
+      return { shouldTerminate: true, reason: 'Maximum depth reached', detail };
     } else if (hasStrongConclusion) {
-      return { shouldTerminate: true, reason: 'Strong conclusion found' };
-    } else {
-      return { shouldTerminate: false, reason: 'Continue reasoning' };
+      return { shouldTerminate: true, reason: 'Strong conclusion found', detail };
     }
+    const gaps: string[] = [];
+    gaps.push(`depth ${maxAtomDepth}/${this.maxDepth}`);
+    if (session.verifiedConclusions.length === 0) {
+      gaps.push('no verified conclusion yet');
+    } else {
+      gaps.push(`best verified conclusion at ${bestVerifiedConfidence} (needs >= 0.9)`);
+    }
+    return { shouldTerminate: false, reason: `Continue reasoning: ${gaps.join('; ')}`, detail };
   }
 
   public getBestConclusion(sessionId?: string): AtomData | null {
@@ -484,7 +607,7 @@ export class AtomOfThoughtsServer {
 
       // Auto-spawn a fresh session if the active one is completed and this
       // looks like a new reasoning chain.
-      this.ensureActiveSessionForInput({
+      const autoSpawnedSession = this.ensureActiveSessionForInput({
         sessionId: sessionIdInput,
         dependencies: Array.isArray(inputObj.dependencies) ? inputObj.dependencies : undefined,
       });
@@ -501,23 +624,9 @@ export class AtomOfThoughtsServer {
       }
 
       const validatedInput = this.validateAtomData(input);
+      this.prepareAtomForInsert(session, validatedInput);
 
-      if (validatedInput.dependencies.length > 0 && !this.validateDependencies(session, validatedInput.dependencies)) {
-        const missing = validatedInput.dependencies.filter(depId => session.atoms[depId] === undefined);
-        throw new Error(`Dependencies not yet created: [${missing.join(', ')}]. Create those atoms first.`);
-      }
-      this.assertNoCycle(session, validatedInput.atomId, validatedInput.dependencies);
-
-      if (validatedInput.depth === undefined) {
-        const depthsOfDependencies = validatedInput.dependencies
-          .map(depId => (session.atoms[depId]?.depth !== undefined ? session.atoms[depId].depth! : 0))
-          .filter(depth => depth !== undefined);
-
-        validatedInput.depth = depthsOfDependencies.length > 0
-          ? Math.max(...depthsOfDependencies) + 1
-          : 0;
-      }
-
+      const overwritten = session.atoms[validatedInput.atomId] !== undefined;
       session.atoms[validatedInput.atomId] = validatedInput;
 
       if (!session.atomOrder.includes(validatedInput.atomId)) {
@@ -536,12 +645,12 @@ export class AtomOfThoughtsServer {
       const formattedAtom = this.formatAtom(validatedInput);
       console.error(formattedAtom);
 
-      if (validatedInput.atomType === 'verification' && validatedInput.isVerified) {
-        validatedInput.dependencies.forEach(depId => {
-          if (session.atoms[depId]) {
-            this.verifyAtom(session, depId, true);
-          }
-        });
+      // Creation-time verification routes through the SAME verifyAtom path as
+      // `set --verified`, so propagation semantics (hypothesis/conclusion
+      // targets only, polarity-aware) and verifiedConclusions bookkeeping are
+      // identical for both entry points.
+      if (validatedInput.isVerified) {
+        this.verifyAtom(session, validatedInput.atomId, true);
       }
 
       const terminationStatus = this.getTerminationStatus(session.id);
@@ -566,6 +675,9 @@ export class AtomOfThoughtsServer {
         sessionId: session.id,
         atomsCount: Object.keys(session.atoms).length,
       };
+      // Loud, not silent: surface overwrites and auto-spawned sessions.
+      if (overwritten) payload.overwritten = true;
+      if (autoSpawnedSession) payload.autoSpawnedSession = autoSpawnedSession;
       // Only include collection fields when non-empty.
       if (dependentAtoms.length > 0) payload.dependentAtoms = dependentAtoms;
       if (conflictingAtoms.length > 0) payload.conflictingAtoms = conflictingAtoms;

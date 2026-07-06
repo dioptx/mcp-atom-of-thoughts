@@ -69,3 +69,16 @@ All six axes shipped (see `CHANGELOG.md` Unreleased):
 - Engine: `updateAtom`/`removeAtom` with guards, `assertNoCycle` on create/overwrite in both servers, collision-free auto-conclusion IDs.
 - Fixed C1–C4 and C6 from §3. C5 (silent coercion) deliberately left — MCP-side behavior is pinned by upstream payload-shape tests.
 - Verification: 240 vitest tests green (219 baseline + 21 new), `tsc --noEmit` clean, full end-to-end smoke of every new command against an isolated `AOT_STATE`, including corrupt-state quarantine and stale-lock breaking.
+
+## 6. Friction burn-down (2026-07-07)
+
+The 63-friction backlog harvested by the self-improvement workflow was deduplicated into ~15 orthogonal work items and resolved in one pass (294 tests green, up from 279):
+
+- **Polarity** (worst class, frictions 0/1/20/21/27/28/43/51): `polarity: refutes` on verification atoms; refuted targets get `isRefuted`, eff conf 0, `refuted_support`/`refuted_conclusion` lints; refuting a conclusion revokes termination.
+- **Propagation unification** (31/53/54): one verifyAtom path for create and set; premises/reasoning never silently verified; creation-verified conclusions register immediately; auto-conclusion gated on VERIFIED >= 0.8 with dedup.
+- **fast/full parity** (2/13/22/23/30/45/48/60): shared prepareAtomForInsert (dep validation, cycle guard, depth) in both servers.
+- **Analysis semantics** (14/15/39/40/50/57/58/62): verified atoms anchor effective confidence; weakestLinks selective with stated criterion; contradictions = supported AND refuted, sibling noise removed; low_effective_conclusion lint bridges raw-confidence termination vs propagated confidence.
+- **CLI robustness/UX**: domain error codes via IncurError; lockless read commands; --state flag; gc --yes guard; archive/reopen; ISO timestamps; --no-X kebab rewrite; positional hints; overwrite/confidence-default/auto-spawn markers; set changed-fields + NO_FIELDS; dag dry-run labeling; structured validation errors.
+- **Capabilities**: analyze --gate/--failOn (CI exit codes), import (export round-trip), analyze/graph --from file, --evidence attachments.
+
+Remaining known ceilings (deliberate): termination still uses raw confidence (surfaced by low_effective_conclusion rather than changed — MCP behavior pin); C5 silent coercion in validateAtomData unchanged for MCP payload-shape compatibility.

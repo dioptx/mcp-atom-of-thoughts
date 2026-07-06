@@ -28,7 +28,7 @@ describe('AtomOfThoughtsLightServer', () => {
     expect(data.atomsCount).toBe(1);
   });
 
-  it('auto-suggests conclusion for hypothesis >= 0.8 confidence', () => {
+  it('does not auto-suggest a conclusion for a merely-confident UNVERIFIED hypothesis', () => {
     server.processAtom({
       atomId: 'P1', content: 'Premise', atomType: 'premise',
       dependencies: [], confidence: 0.9
@@ -39,6 +39,21 @@ describe('AtomOfThoughtsLightServer', () => {
     });
     const atoms = server.getAtoms();
     const conclusionKeys = Object.keys(atoms).filter(k => k.startsWith('C'));
+    expect(conclusionKeys.length).toBe(0);
+  });
+
+  it('auto-suggests exactly one conclusion for a VERIFIED hypothesis >= 0.8, never duplicating', () => {
+    server.processAtom({
+      atomId: 'H1', content: 'Hypothesis', atomType: 'hypothesis',
+      dependencies: [], confidence: 0.85, isVerified: true
+    });
+    // Overwrite must not inject a duplicate conclusion.
+    server.processAtom({
+      atomId: 'H1', content: 'Hypothesis refined', atomType: 'hypothesis',
+      dependencies: [], confidence: 0.85, isVerified: true
+    });
+    const atoms = server.getAtoms();
+    const conclusionKeys = Object.keys(atoms).filter(k => /^C\d+$/.test(k));
     expect(conclusionKeys.length).toBe(1);
   });
 

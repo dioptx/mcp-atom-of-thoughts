@@ -176,7 +176,7 @@ describe('AtomOfThoughtsServer', () => {
     it('should not terminate initially', () => {
       const status = server.getTerminationStatus();
       expect(status.shouldTerminate).toBe(false);
-      expect(status.reason).toBe('Continue reasoning');
+      expect(status.reason).toContain('Continue reasoning');
     });
 
     it('terminates when max depth reached', () => {

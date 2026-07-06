@@ -4,10 +4,11 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { Cli, z } from 'incur';
+import { Cli, Errors, z } from 'incur';
 import { AtomOfThoughtsServer, type AtomServerSnapshot } from './atom-server.js';
 import { AtomOfThoughtsLightServer } from './atom-light-server.js';
-import { exportGraph } from './graph-export.js';
+import { exportGraph, graphDataToAtoms } from './graph-export.js';
+import type { GraphData } from './types.js';
 import { getAllTools } from './tools.js';
 import { brCommandAvailable, summarizeBrSync, syncGraphToBr, type BrSyncOptions } from './integrations/br.js';
 import { bvCommandAvailable, runBvRobot, summarizeBvRobot, type BvRobotCommand } from './integrations/bv.js';
@@ -16,12 +17,57 @@ import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
 import { renderGraph } from './graph-render.js';
-import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint } from './cli-hints.js';
+import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint, positionalFlagMisuseHint, rewriteNegatedBoolFlags } from './cli-hints.js';
 
 const VERSION = '3.1.0';
 const OUTPUT_SCHEMA_VERSION = 'aot.cli.pipeline.v1';
 const SERVER_BIN = process.env.AOT_SERVER_BIN ?? path.join(path.dirname(new URL(import.meta.url).pathname), 'index.js');
-const STATE_PATH = process.env.AOT_STATE ?? path.join(os.homedir(), '.local/state/aot-cli/state.json');
+
+// State targeting: --state <path> beats AOT_STATE beats the default. The flag
+// is stripped from argv before the framework parses (it is global, not
+// per-command).
+function extractStateFlag(argv: string[]): { statePath: string | undefined; argv: string[] } {
+  const out: string[] = [];
+  let statePath: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i];
+    if (token === '--state') { statePath = argv[++i]; continue; }
+    if (token.startsWith('--state=')) { statePath = token.slice('--state='.length); continue; }
+    out.push(token);
+  }
+  return { statePath, argv: out };
+}
+const stateFlag = extractStateFlag(process.argv.slice(2));
+process.argv = [...process.argv.slice(0, 2), ...stateFlag.argv];
+const STATE_PATH = stateFlag.statePath ?? process.env.AOT_STATE ?? path.join(os.homedir(), '.local/state/aot-cli/state.json');
+
+/**
+ * Rethrow engine errors as IncurError with a machine-readable code instead of
+ * the framework's blanket UNKNOWN.
+ */
+function withDomainErrors<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof Errors.IncurError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    const rules: Array<[RegExp, string, string | undefined]> = [
+      [/Atom with ID .* not found/i, 'ATOM_NOT_FOUND', 'Use `aot list` to see atom IDs in the session.'],
+      [/has dependents/i, 'HAS_DEPENDENTS', 'Pass --force to detach dependents and remove.'],
+      [/cycle/i, 'DEPENDENCY_CYCLE', 'Adjust --deps so the atom does not transitively depend on itself.'],
+      [/Dependencies not yet created/i, 'MISSING_DEPENDENCY', 'Create the missing dependency atoms first.'],
+      [/Confidence must be between/i, 'INVALID_CONFIDENCE', 'Confidence must be 0-1 (or 0-100, normalized).'],
+      [/Session not found/i, 'SESSION_NOT_FOUND', 'Use `aot sessions` to list sessions.'],
+      [/Session already exists/i, 'SESSION_EXISTS', 'Pick a different session ID or `aot switch` to it.'],
+      [/polarity is only valid/i, 'INVALID_POLARITY', 'Polarity applies to verification atoms only.'],
+      [/nothing to update/i, 'NO_FIELDS', 'Pass at least one of --content/--confidence/--verified/--polarity/--deps/--evidence.'],
+    ];
+    for (const [pattern, code, hint] of rules) {
+      if (pattern.test(message)) throw new Errors.IncurError({ code, message, hint, cause: error instanceof Error ? error : undefined });
+    }
+    throw error;
+  }
+}
 
 type ToolName = 'AoT-fast' | 'AoT-full' | 'atomcommands';
 type AutoBeadsOptions = {
@@ -47,6 +93,8 @@ const AtomPayload = z.object({
   dependencies: z.array(z.string()).default([]).describe('Atom IDs this atom depends on'),
   confidence: z.number().min(0).max(1).default(0.7).describe('Confidence from 0 to 1'),
   isVerified: z.boolean().default(false).describe('Whether the atom is verified'),
+  polarity: z.enum(['supports', 'refutes']).optional().describe('Verification atoms only: evidence direction (default supports)'),
+  evidence: z.array(z.string()).optional().describe('Evidence artifact references (paths, URLs)'),
   depth: z.number().optional().describe('Optional depth override'),
   sessionId: z.string().optional().describe('Target session'),
 });
@@ -99,18 +147,6 @@ function pipelineMeta(pipeline: string): Record<string, unknown> {
     pipeline,
   };
 }
-const StateOutput = z.object({
-  statePath: z.string(),
-  activeSessionId: z.string(),
-  maxDepth: z.number(),
-  sessions: z.array(z.object({
-    id: z.string(),
-    status: z.string(),
-    atomCount: z.number(),
-    createdAt: z.number(),
-  })),
-});
-
 function normalizeType(type: z.infer<typeof TypeAlias>): z.infer<typeof AtomType> {
   switch (type) {
     case 'p': return 'premise';
@@ -191,7 +227,27 @@ function readJsonArg(value: string): unknown {
     : value.startsWith('@')
       ? fs.readFileSync(value.slice(1), 'utf8')
       : value;
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Errors.IncurError({
+      code: 'INVALID_JSON',
+      message: `Input is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      hint: 'Pass raw JSON, @file, or - for stdin.',
+    });
+  }
+}
+
+/** Zod-parse with a structured validation_error instead of a raw issue dump. */
+function parseWithSchema<T>(schema: z.ZodType<T>, value: unknown): T {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  const issues = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`);
+  throw new Errors.IncurError({
+    code: 'VALIDATION_ERROR',
+    message: `Payload validation failed: ${issues.join('; ')}`,
+    hint: 'Fix the listed fields and retry.',
+  });
 }
 
 function sleep(ms: number): void {
@@ -281,6 +337,10 @@ function callAtomBatch(items: Array<z.infer<typeof AtomPayload> & { tool?: Exclu
   });
 }
 
+// Commands that never mutate state: no exclusive lock, no state rewrite.
+// Safe lockless because state writes are atomic (tmp + rename).
+const READ_ONLY_ATOM_COMMANDS = new Set(['termination_status', 'best_conclusion', 'export', 'list_sessions']);
+
 function runAtomCommand(command: string, options: {
   atomId?: string;
   decompositionId?: string;
@@ -288,7 +348,8 @@ function runAtomCommand(command: string, options: {
   title?: string;
   sessionId?: string;
 }): Record<string, unknown> {
-  return withStateLock(() => {
+  const readOnly = READ_ONLY_ATOM_COMMANDS.has(command);
+  const execute = (): Record<string, unknown> => {
   const server = makeServer();
   let result: Record<string, unknown>;
 
@@ -326,19 +387,30 @@ function runAtomCommand(command: string, options: {
       result = { status: 'success', command, activeSessionId: server.getActiveSessionId() };
       break;
     case 'list_sessions':
-      result = { status: 'success', command, activeSessionId: server.getActiveSessionId(), sessions: server.listSessions(), statePath: STATE_PATH };
+      result = { status: 'success', command, activeSessionId: server.getActiveSessionId(), maxDepth: server.maxDepth, sessions: server.listSessions(), statePath: STATE_PATH };
       break;
     case 'reset_session':
       server.resetSession(options.sessionId);
       result = { status: 'success', command, sessionId: options.sessionId ?? server.getActiveSessionId() };
       break;
+    case 'archive_session': {
+      const session = server.setSessionStatus('completed', options.sessionId);
+      result = { status: 'success', command, sessionId: session.id, sessionStatus: session.status };
+      break;
+    }
+    case 'reopen_session': {
+      const session = server.setSessionStatus('active', options.sessionId);
+      result = { status: 'success', command, sessionId: session.id, sessionStatus: session.status };
+      break;
+    }
     default:
       throw new Error(`Unknown atomcommands command: ${command}`);
   }
 
-  saveServer(server);
+  if (!readOnly) saveServer(server);
   return result;
-  });
+  };
+  return readOnly ? withDomainErrors(execute) : withStateLock(() => withDomainErrors(execute));
 }
 
 function passthrough(args: string[]): Promise<{ exitCode: number | null }> {
@@ -395,8 +467,11 @@ const cli = Cli.create('aot', {
 function exampleOptions<const T extends Record<string, unknown>>(options: T): T {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(options)) {
-    if (typeof value === 'boolean') out[`${key}=${value}`] = '';
-    else out[key] = value;
+    // Kebab-case in examples matches how the framework lists the option
+    // flags, so one help screen never shows two spellings of the same flag.
+    const kebab = key.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
+    if (typeof value === 'boolean') out[`${kebab}=${value}`] = '';
+    else out[kebab] = value;
   }
   return out as T;
 }
@@ -422,6 +497,8 @@ for (const mode of ['fast', 'full'] as const) {
       deps: z.string().optional().describe('Comma-separated dependency atom IDs'),
       confidence: z.coerce.number().optional().describe('Confidence as 0-1 or 0-100'),
       verified: z.boolean().optional().describe('Mark atom verified'),
+      refutes: z.boolean().optional().describe('Verification atoms only: this evidence REFUTES its hypothesis/conclusion dependencies instead of supporting them'),
+      evidence: z.string().optional().describe('Comma-separated evidence refs (file paths, URLs)'),
       sessionId: z.string().optional().describe('Target session ID'),
       trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
       noBeads: z.boolean().optional().describe('Disable automatic br/beads issue creation for this atom'),
@@ -438,15 +515,22 @@ for (const mode of ['fast', 'full'] as const) {
       { args: { type: 'reasoning', atomId: 'R1', content: 'Handler likely throws' }, options: { deps: 'P1' }, description: 'Add dependent reasoning' },
     ],
     run({ args, options }) {
-      return callAtom(mode === 'fast' ? 'AoT-fast' : 'AoT-full', {
+      const result = callAtom(mode === 'fast' ? 'AoT-fast' : 'AoT-full', {
         atomId: args.atomId,
         atomType: normalizeType(args.type),
         content: args.content,
         dependencies: parseDeps(options.deps),
         confidence: normalizeConfidence(options.confidence) ?? 0.7,
         isVerified: options.verified ?? false,
+        polarity: options.refutes ? 'refutes' : undefined,
+        evidence: options.evidence ? parseDeps(options.evidence) : undefined,
         sessionId: options.sessionId,
       }, options.trace, options);
+      // Silent defaults are a friction: say when 0.7 was assumed, not chosen.
+      if (options.confidence === undefined && result && typeof result === 'object' && !Array.isArray(result)) {
+        (result as Record<string, unknown>).confidenceDefaulted = true;
+      }
+      return result;
     },
   });
 }
@@ -471,7 +555,7 @@ cli.command('batch', {
     { args: { atoms: '@atoms.json' }, description: 'Create atoms from a file' },
   ],
   run({ args, options }) {
-    const parsed = z.array(BatchAtomPayload).parse(readJsonArg(args.atoms));
+    const parsed = parseWithSchema(z.array(BatchAtomPayload), readJsonArg(args.atoms));
     return callAtomBatch(parsed, options.trace, options);
   },
 });
@@ -505,7 +589,7 @@ cli.command('call', {
         sessionId: payload.sessionId as string | undefined,
       });
     }
-    return callAtom(args.tool, AtomPayload.parse(payload), undefined, options);
+    return callAtom(args.tool, parseWithSchema(AtomPayload, payload), undefined, options);
   },
 });
 
@@ -734,7 +818,7 @@ cli.command('plan', {
     { args: { atoms: '@atoms.json' }, description: 'Create a plan, sync it to br, and evaluate with bv' },
   ],
   run({ args, options }) {
-    const parsed = z.array(BatchAtomPayload).parse(readJsonArg(args.atoms));
+    const parsed = parseWithSchema(z.array(BatchAtomPayload), readJsonArg(args.atoms));
     const items = options.sessionId
       ? parsed.map(atom => ({ ...atom, sessionId: atom.sessionId ?? options.sessionId }))
       : parsed;
@@ -799,7 +883,7 @@ cli.command('dag', {
   run({ args, options }) {
     const meta = pipelineMeta('dag');
     try {
-      const parsed = DagPayload.parse(readJsonArg(args.dag));
+      const parsed = parseWithSchema(DagPayload, readJsonArg(args.dag));
       // Session precedence matches every other command: explicit flag >
       // payload sessionId > active session > 'default'. Dry-run and real run
       // resolve identically because both use this one resolution.
@@ -857,7 +941,9 @@ cli.command('dag', {
         dag: summarizeDag(dag),
         git,
         atoms: atomResult,
-        br: br ? summarizeBrSync(br) : undefined,
+        // Consistent simulated-vs-real labeling: every stage in a --dryRun
+        // payload says 'dry-run', never 'ok'.
+        br: br ? { ...summarizeBrSync(br), ...(options.dryRun ? { status: 'dry-run' } : {}) } : undefined,
         brRaw: br,
         linear,
         bv: bv ? summarizeBvRobot(options.bvCommand as BvRobotCommand, bv) : options.dryRun ? { status: 'skipped', reason: 'dry-run' } : undefined,
@@ -914,16 +1000,33 @@ cli.command('audit', {
 });
 
 cli.command('sessions', {
-  description: 'List persistent AoT sessions.',
-  output: StateOutput,
+  description: 'List persistent AoT sessions. Read-only: takes no lock and never rewrites state.',
+  output: AnyOutput,
   run() {
     const result = runAtomCommand('list_sessions', {});
     return {
       statePath: STATE_PATH,
       activeSessionId: String(result.activeSessionId),
-      maxDepth: makeServer().maxDepth,
-      sessions: result.sessions as z.infer<typeof StateOutput>['sessions'],
+      maxDepth: result.maxDepth as number,
+      sessions: (result.sessions as Array<{ id: string; status: string; atomCount: number; createdAt: number }>).map(s => ({
+        ...s,
+        createdAtIso: new Date(s.createdAt).toISOString(),
+      })),
     };
+  },
+});
+
+cli.command('archive', {
+  description: 'Mark a session completed (default: active session), making it eligible for `aot gc`. Reopen with --reopen.',
+  args: z.object({ sessionId: z.string().optional().describe('Session to archive (default active)') }),
+  options: z.object({ reopen: z.boolean().optional().describe('Set the session back to active instead') }),
+  output: AnyOutput,
+  examples: [
+    { description: 'Archive the active session' },
+    { args: { sessionId: 'api500' }, options: exampleOptions({ reopen: true }), description: 'Reopen an archived session' },
+  ],
+  run({ args, options }) {
+    return runAtomCommand(options.reopen ? 'reopen_session' : 'archive_session', { sessionId: args.sessionId });
   },
 });
 
@@ -976,8 +1079,12 @@ cli.command('list', {
         atomType: atom.atomType,
         confidence: atom.confidence,
         isVerified: atom.isVerified,
+        ...(atom.isRefuted ? { isRefuted: true } : {}),
+        ...(atom.polarity ? { polarity: atom.polarity } : {}),
         depth: atom.depth,
         dependencies: atom.dependencies,
+        ...(atom.evidence?.length ? { evidence: atom.evidence } : {}),
+        createdIso: new Date(atom.created).toISOString(),
         content: atom.content.length > 120 ? `${atom.content.slice(0, 119)}…` : atom.content,
       }));
     return { sessionId, count: rows.length, atoms: rows };
@@ -991,39 +1098,117 @@ cli.command('show', {
   output: AnyOutput,
   examples: [{ args: { atomId: 'H1' }, description: 'Inspect hypothesis H1' }],
   run({ args, options }) {
-    const server = makeServer();
-    const sessionId = options.sessionId ?? server.getActiveSessionId();
-    const atoms = server.getAtoms(options.sessionId);
-    const atom = atoms[args.atomId];
-    if (!atom) throw new Error(`Atom with ID ${args.atomId} not found in session ${sessionId}`);
-    const analysis = analyzeGraph(atoms);
-    const atomAnalysis = analysis.atoms.find(a => a.atomId === args.atomId);
-    return {
-      sessionId,
-      atom,
-      effectiveConfidence: atomAnalysis?.effectiveConfidence,
-      dependencies: atom.dependencies.map(id => atoms[id]).filter(Boolean),
-      dependents: (atomAnalysis?.dependents ?? []).map(id => atoms[id]).filter(Boolean),
-      issues: analysis.issues.filter(issue => issue.atomIds.includes(args.atomId)),
-    };
+    return withDomainErrors(() => {
+      const server = makeServer();
+      const sessionId = options.sessionId ?? server.getActiveSessionId();
+      const atoms = server.getAtoms(options.sessionId);
+      const atom = atoms[args.atomId];
+      if (!atom) throw new Error(`Atom with ID ${args.atomId} not found in session ${sessionId}`);
+      const analysis = analyzeGraph(atoms);
+      const atomAnalysis = analysis.atoms.find(a => a.atomId === args.atomId);
+      return {
+        sessionId,
+        atom: { ...atom, createdIso: new Date(atom.created).toISOString() },
+        effectiveConfidence: atomAnalysis?.effectiveConfidence,
+        dependencies: atom.dependencies.map(id => atoms[id]).filter(Boolean),
+        dependents: (atomAnalysis?.dependents ?? []).map(id => atoms[id]).filter(Boolean),
+        issues: analysis.issues.filter(issue => issue.atomIds.includes(args.atomId)),
+      };
+    });
   },
 });
 
+/**
+ * Resolve the atoms map for analyze/graph: either a session from persistent
+ * state, or a graph file (`--from`): exported GraphData or a raw atoms map.
+ */
+function atomsForInspection(options: { sessionId?: string; from?: string }): { atoms: Record<string, import('./types.js').AtomData>; atomOrder: string[]; source: string } {
+  if (options.from) {
+    const parsed = readJsonArg(options.from.startsWith('@') || options.from === '-' ? options.from : `@${options.from}`) as Record<string, unknown>;
+    if (Array.isArray(parsed.nodes)) {
+      const { atoms, atomOrder } = graphDataToAtoms(parsed as unknown as GraphData);
+      return { atoms, atomOrder, source: `file:${options.from}` };
+    }
+    if (parsed.graph && Array.isArray((parsed.graph as GraphData).nodes)) {
+      const { atoms, atomOrder } = graphDataToAtoms(parsed.graph as GraphData);
+      return { atoms, atomOrder, source: `file:${options.from}` };
+    }
+    throw new Errors.IncurError({ code: 'INVALID_GRAPH_FILE', message: 'File is neither exported GraphData ({nodes,links}) nor an `aot export` payload ({graph:{nodes,links}}).', hint: 'Export with `aot export` or `aot cmd export`.' });
+  }
+  const server = makeServer();
+  const sessionId = options.sessionId ?? server.getActiveSessionId();
+  return { atoms: server.getAtoms(options.sessionId), atomOrder: server.getAtomOrder(options.sessionId), source: `session:${sessionId}` };
+}
+
 cli.command('analyze', {
-  description: 'Analyze the atom graph: cycles, dangling deps, topological order, effective (propagated) confidence, weakest links, contradictions, critical path, and lint issues.',
+  description: 'Analyze the atom graph: cycles, dangling deps, topological order, effective (propagated) confidence, weakest links, contradictions, refuted atoms, critical path, and lint issues. Gate mode for CI: exit 1 on issues.',
   options: z.object({
     sessionId: z.string().optional().describe('Session to analyze (default active)'),
+    from: z.string().optional().describe('Analyze a graph file (aot export output or GraphData JSON) instead of session state; @file, path, or - for stdin'),
     weakThreshold: z.coerce.number().optional().describe('Effective-confidence threshold for weak_support issues (default 0.5)'),
+    gate: z.boolean().optional().describe('Exit with code 1 when lint issues are found (CI gate mode)'),
+    failOn: z.string().optional().describe('Comma-separated issue codes that trigger gate failure (default: all)'),
   }),
   output: AnyOutput,
   examples: [
     { description: 'Analyze the active session' },
-    { options: { weakThreshold: 0.7 }, description: 'Stricter weak-support lint' },
+    { options: exampleOptions({ weakThreshold: 0.7 }), description: 'Stricter weak-support lint' },
+    { options: exampleOptions({ gate: true, failOn: 'cycle,refuted_support,dangling_dependency' }), description: 'CI gate: fail only on structural breakage' },
   ],
   run({ options }) {
-    const server = makeServer();
-    const sessionId = options.sessionId ?? server.getActiveSessionId();
-    return { sessionId, ...analyzeGraph(server.getAtoms(options.sessionId), { weakThreshold: options.weakThreshold }) };
+    const { atoms, source } = atomsForInspection(options);
+    const analysis = analyzeGraph(atoms, { weakThreshold: options.weakThreshold });
+    const failCodes = options.failOn ? new Set(parseDeps(options.failOn)) : null;
+    const gateIssues = failCodes ? analysis.issues.filter(issue => failCodes.has(issue.code)) : analysis.issues;
+    if (options.gate && gateIssues.length > 0) {
+      process.exitCode = 1;
+    }
+    return {
+      source,
+      ...(options.gate ? { gate: { failed: gateIssues.length > 0, failingIssueCount: gateIssues.length, failOn: failCodes ? [...failCodes] : 'all' } } : {}),
+      ...analysis,
+    };
+  },
+});
+
+cli.command('import', {
+  description: 'Import an exported graph (aot export output or GraphData JSON) into a session, making exports round-trippable.',
+  args: z.object({ file: z.string().describe('Graph JSON: path, @file, or - for stdin') }),
+  options: z.object({
+    sessionId: z.string().optional().describe('Target session (default active); auto-created if missing'),
+    replace: z.boolean().optional().describe('Reset the target session before importing (default: merge/overwrite by atom ID)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { args: { file: 'graph.json' }, options: exampleOptions({ sessionId: 'restored' }), description: 'Import an exported graph into a fresh session' },
+  ],
+  run({ args, options }) {
+    return withStateLock(() => withDomainErrors(() => {
+      const parsed = readJsonArg(args.file.startsWith('@') || args.file === '-' ? args.file : `@${args.file}`) as Record<string, unknown>;
+      const graph = Array.isArray(parsed.nodes) ? parsed as unknown as GraphData
+        : parsed.graph && Array.isArray((parsed.graph as GraphData).nodes) ? parsed.graph as GraphData
+        : null;
+      if (!graph) throw new Errors.IncurError({ code: 'INVALID_GRAPH_FILE', message: 'File is neither exported GraphData ({nodes,links}) nor an `aot export` payload.', hint: 'Export with `aot export`.' });
+      const { atoms, atomOrder } = graphDataToAtoms(graph);
+      const server = makeServer();
+      const sessionId = options.sessionId ?? server.getActiveSessionId();
+      const state = server.exportState();
+      if (!state.sessions[sessionId]) {
+        server.newSession(sessionId);
+      }
+      const session = state.sessions[sessionId] ?? server.exportState().sessions[sessionId];
+      if (options.replace) server.resetSession(sessionId);
+      let imported = 0;
+      for (const id of atomOrder) {
+        session.atoms[id] = atoms[id];
+        if (!session.atomOrder.includes(id)) session.atomOrder.push(id);
+        imported++;
+      }
+      session.verifiedConclusions = session.atomOrder.filter(id =>
+        session.atoms[id]?.atomType === 'conclusion' && session.atoms[id].isVerified);
+      saveServer(server);
+      return { status: 'success', sessionId, importedCount: imported, atomCount: Object.keys(session.atoms).length, title: graph.title };
+    }));
   },
 });
 
@@ -1032,6 +1217,7 @@ cli.command('graph', {
   options: z.object({
     graphFormat: z.enum(['tree', 'mermaid', 'dot', 'canvas']).default('tree').describe('Render format'),
     sessionId: z.string().optional().describe('Session to render (default active)'),
+    from: z.string().optional().describe('Render a graph file (aot export output or GraphData JSON) instead of session state'),
     title: z.string().optional().describe('Graph title'),
     out: z.string().optional().describe('Write rendered output to a file (e.g. plan.canvas) instead of returning it inline'),
   }),
@@ -1042,29 +1228,41 @@ cli.command('graph', {
     { options: { graphFormat: 'canvas', out: 'reasoning.canvas' }, description: 'Obsidian canvas file' },
   ],
   run({ options, formatExplicit }) {
-    const { graph, sessionId } = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
+    let graph: GraphData;
+    let sourceLabel: string;
+    if (options.from) {
+      const { atoms, atomOrder, source } = atomsForInspection({ from: options.from });
+      graph = exportGraph(atoms, atomOrder, options.title);
+      sourceLabel = source;
+    } else {
+      const current = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
+      graph = current.graph;
+      sourceLabel = `session:${current.sessionId}`;
+    }
     const rendered = renderGraph(graph, options.graphFormat);
     if (options.out) {
       fs.writeFileSync(options.out, rendered.endsWith('\n') ? rendered : `${rendered}\n`);
-      return { sessionId, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
+      return { source: sourceLabel, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
     }
     // Structured envelope only on explicit request (--format json / --json /
     // --format toon ...); by default the render goes to stdout raw so
     // tree/mermaid/dot output is terminal- and doc-pasteable, with metadata
     // on stderr.
-    if (formatExplicit) return { sessionId, format: options.graphFormat, rendered };
-    process.stderr.write(`aot graph: session=${sessionId} graphFormat=${options.graphFormat}\n`);
+    if (formatExplicit) return { source: sourceLabel, format: options.graphFormat, rendered };
+    process.stderr.write(`aot graph: ${sourceLabel} graphFormat=${options.graphFormat}\n`);
     return rendered;
   },
 });
 
 cli.command('set', {
-  description: 'Update an existing atom: content, confidence, verification, or dependencies (cycle-checked).',
+  description: 'Update an existing atom: content, confidence, verification, polarity, evidence, or dependencies (cycle-checked). Archives the session when the update makes termination hold.',
   args: z.object({ atomId: z.string().describe('Atom ID') }),
   options: z.object({
     content: z.string().optional().describe('New content'),
     confidence: z.coerce.number().optional().describe('New confidence (0-1 or 0-100)'),
     verified: z.boolean().optional().describe('Set verification state'),
+    polarity: z.enum(['supports', 'refutes']).optional().describe('Verification atoms only: evidence direction'),
+    evidence: z.string().optional().describe('Comma-separated replacement evidence refs (paths, URLs)'),
     deps: z.string().optional().describe('Comma-separated replacement dependency IDs'),
     sessionId: z.string().optional().describe('Session (default active)'),
   }),
@@ -1072,19 +1270,37 @@ cli.command('set', {
   output: AnyOutput,
   examples: [
     { args: { atomId: 'H1' }, options: exampleOptions({ confidence: 0.95, verified: true }), description: 'Mark hypothesis verified at 95%' },
+    { args: { atomId: 'V1' }, options: exampleOptions({ polarity: 'refutes' as const, verified: true }), description: 'Record refuting evidence: dependencies get marked refuted, never verified' },
   ],
   run({ args, options }) {
-    return withStateLock(() => {
+    const changed = (['content', 'confidence', 'verified', 'polarity', 'evidence', 'deps'] as const)
+      .filter(key => options[key] !== undefined);
+    return withStateLock(() => withDomainErrors(() => {
+      if (changed.length === 0) {
+        throw new Error(`nothing to update on ${args.atomId}: no mutation flags were passed`);
+      }
       const server = makeServer();
       const atom = server.updateAtom(args.atomId, {
         content: options.content,
         confidence: normalizeConfidence(options.confidence),
         isVerified: options.verified,
+        polarity: options.polarity,
+        evidence: options.evidence !== undefined ? parseDeps(options.evidence) : undefined,
         dependencies: options.deps !== undefined ? parseDeps(options.deps) : undefined,
       }, options.sessionId);
+      // A set can push the session past its termination condition (e.g.
+      // bumping a verified conclusion to >= 0.9); archive it exactly like
+      // creation-time termination does, instead of leaving it un-gc-able.
+      const termination = server.archiveIfTerminated(options.sessionId);
       saveServer(server);
-      return { status: 'success', sessionId: options.sessionId ?? server.getActiveSessionId(), atom };
-    });
+      return {
+        status: 'success',
+        sessionId: options.sessionId ?? server.getActiveSessionId(),
+        changed,
+        atom,
+        ...(termination.shouldTerminate ? { terminationStatus: { shouldTerminate: true, reason: termination.reason }, sessionArchived: termination.archived } : {}),
+      };
+    }));
   },
 });
 
@@ -1098,25 +1314,27 @@ cli.command('rm', {
   output: AnyOutput,
   examples: [{ args: { atomId: 'R2' }, description: 'Remove a leaf atom' }],
   run({ args, options }) {
-    return withStateLock(() => {
+    return withStateLock(() => withDomainErrors(() => {
       const server = makeServer();
       const result = server.removeAtom(args.atomId, options.sessionId, options.force ?? false);
       saveServer(server);
       return { status: 'success', sessionId: options.sessionId ?? server.getActiveSessionId(), ...result };
-    });
+    }));
   },
 });
 
 cli.command('gc', {
-  description: 'Prune completed and empty sessions from persistent state (never the active session or "default").',
+  description: 'Prune completed and empty sessions from persistent state (never the active session or "default"). Completed sessions with atoms are finished reasoning artifacts: deleting them requires --yes; without it, gc previews them and removes only empty sessions.',
   options: z.object({
-    dryRun: z.boolean().optional().describe('Preview removals without writing'),
+    dryRun: z.boolean().optional().describe('Preview all removals without writing anything'),
+    yes: z.boolean().optional().describe('Actually delete completed sessions that still contain atoms (irreversible)'),
     olderThanDays: z.coerce.number().optional().describe('Only prune sessions older than N days'),
     keepCompleted: z.boolean().optional().describe('Only prune empty sessions, keep completed ones'),
   }),
   output: AnyOutput,
   examples: [
     { options: exampleOptions({ dryRun: true }), description: 'Preview what would be pruned' },
+    { options: exampleOptions({ yes: true, olderThanDays: 7 }), description: 'Delete week-old completed sessions, including their atoms' },
   ],
   run({ options }) {
     return withStateLock(() => {
@@ -1124,17 +1342,32 @@ cli.command('gc', {
       const state = server.exportState();
       const cutoff = options.olderThanDays !== undefined ? Date.now() - options.olderThanDays * 86_400_000 : undefined;
       const removed: Array<{ id: string; status: string; atomCount: number }> = [];
+      const kept: Array<{ id: string; status: string; atomCount: number; reason: string }> = [];
       for (const [id, session] of Object.entries(state.sessions)) {
         if (id === state.activeSessionId || id === 'default') continue;
         if (cutoff !== undefined && session.createdAt > cutoff) continue;
-        const empty = Object.keys(session.atoms).length === 0;
+        const atomCount = Object.keys(session.atoms).length;
+        const empty = atomCount === 0;
         const prunable = empty || (!options.keepCompleted && session.status === 'completed');
         if (!prunable) continue;
-        removed.push({ id, status: session.status, atomCount: Object.keys(session.atoms).length });
+        // Non-empty completed sessions are the OUTPUT of finished reasoning.
+        // Data loss requires explicit consent.
+        if (!empty && !options.yes && !options.dryRun) {
+          kept.push({ id, status: session.status, atomCount, reason: 'contains atoms; pass --yes to delete (or --dry-run to preview)' });
+          continue;
+        }
+        removed.push({ id, status: session.status, atomCount });
         if (!options.dryRun) delete state.sessions[id];
       }
       if (!options.dryRun && removed.length > 0) saveServer(server);
-      return { status: 'success', dryRun: Boolean(options.dryRun), removedCount: removed.length, removed, remaining: Object.keys(state.sessions).length };
+      return {
+        status: 'success',
+        dryRun: Boolean(options.dryRun),
+        removedCount: removed.length,
+        removed,
+        ...(kept.length > 0 ? { keptCount: kept.length, kept } : {}),
+        remaining: Object.keys(state.sessions).length,
+      };
     });
   },
 });
@@ -1167,11 +1400,27 @@ if (formatHint) {
 // Boolean flag names are derived from the invoked command's own options
 // schema via the framework's command registry, so there is no drift.
 const commandEntry = Cli.toCommands.get(cli as never)?.get(cliArgv[0] ?? '');
-const booleanHint = booleanFlagLiteralHint(cliArgv, booleanOptionNames((commandEntry as { options?: unknown } | undefined)?.options));
+const commandBooleans = booleanOptionNames((commandEntry as { options?: unknown } | undefined)?.options);
+const booleanHint = booleanFlagLiteralHint(cliArgv, commandBooleans);
 if (booleanHint) {
   process.stderr.write(`${booleanHint}\n`);
   process.exit(1);
 }
+
+// `--sessionId`/`--atomId` passed to commands where they are POSITIONALS get
+// a pointer instead of a bare "Unknown flag".
+const argsShape = ((commandEntry as { args?: { shape?: Record<string, unknown> } } | undefined)?.args)?.shape;
+const positionalHint = positionalFlagMisuseHint(cliArgv, argsShape ? Object.keys(argsShape) : []);
+if (positionalHint) {
+  process.stderr.write(`${positionalHint}\n`);
+  process.exit(1);
+}
+
+// Make the help screen's own `--no-br`-style spellings actually parse: the
+// framework treats `--no-X` as negation of X, which shadows flags whose real
+// name starts with "no" (noBr, noBv, noBeads, ...). Rewrite them to the
+// declared camelCase form before the framework sees argv.
+process.argv = [...process.argv.slice(0, 2), ...rewriteNegatedBoolFlags(cliArgv, commandBooleans)];
 
 cli.serve();
 export default cli;

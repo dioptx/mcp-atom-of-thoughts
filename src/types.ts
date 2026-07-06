@@ -2,6 +2,14 @@ export type AtomType = 'premise' | 'reasoning' | 'hypothesis' | 'verification' |
 
 export const VALID_ATOM_TYPES: AtomType[] = ['premise', 'reasoning', 'hypothesis', 'verification', 'conclusion'];
 
+/**
+ * Direction of a verification atom's evidence. 'supports' (default) verifies
+ * its hypothesis dependencies when the verification itself is verified;
+ * 'refutes' marks them refuted instead — negative evidence is first-class,
+ * never silently inverted into support.
+ */
+export type VerificationPolarity = 'supports' | 'refutes';
+
 export interface AtomData {
   atomId: string;
   content: string;
@@ -11,6 +19,12 @@ export interface AtomData {
   created: number;
   isVerified: boolean;
   depth?: number;
+  /** Only meaningful on verification atoms. Defaults to 'supports'. */
+  polarity?: VerificationPolarity;
+  /** Set by a verified refuting verification; mutually exclusive with isVerified. */
+  isRefuted?: boolean;
+  /** Evidence artifact references (file paths, URLs). */
+  evidence?: string[];
 }
 
 export interface DecompositionState {
@@ -46,6 +60,9 @@ export interface GraphNode {
   confidence: number;
   depth: number;
   isVerified?: boolean;
+  polarity?: VerificationPolarity;
+  isRefuted?: boolean;
+  evidence?: string[];
   title?: string;
   labels?: string[];
   priority?: string;

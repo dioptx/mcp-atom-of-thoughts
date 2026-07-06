@@ -34,12 +34,31 @@ describe('graph-analysis', () => {
     expect(order.indexOf('H1')).toBeLessThan(order.indexOf('C1'));
   });
 
-  it('propagates effective confidence multiplicatively along the weakest chain', () => {
+  it('propagates effective confidence multiplicatively, with verification anchoring the chain', () => {
     const eff = effectiveConfidences(chain);
     expect(eff.get('P1')).toBeCloseTo(0.9);
     expect(eff.get('R1')).toBeCloseTo(0.72);
     expect(eff.get('H1')).toBeCloseTo(0.504);
-    expect(eff.get('C1')).toBeCloseTo(0.9 * 0.504);
+    // C1 is VERIFIED: empirical verification resets the support discount.
+    expect(eff.get('C1')).toBeCloseTo(0.9);
+  });
+
+  it('unverified atoms keep the multiplicative discount; refuted atoms drop to zero', () => {
+    const graph = byId([
+      atom({ atomId: 'P1', atomType: 'premise', confidence: 0.9 }),
+      atom({ atomId: 'H1', atomType: 'hypothesis', dependencies: ['P1'], confidence: 0.7 }),
+      atom({ atomId: 'C1', atomType: 'conclusion', dependencies: ['H1'], confidence: 0.9 }),
+      atom({ atomId: 'H2', atomType: 'hypothesis', dependencies: ['P1'], confidence: 0.8, isRefuted: true }),
+      atom({ atomId: 'C2', atomType: 'conclusion', dependencies: ['H2'], confidence: 0.95 }),
+    ]);
+    const eff = effectiveConfidences(graph);
+    expect(eff.get('C1')).toBeCloseTo(0.9 * 0.7 * 0.9);
+    expect(eff.get('H2')).toBe(0);
+    expect(eff.get('C2')).toBe(0);
+    const analysis = analyzeGraph(graph);
+    expect(analysis.refuted).toEqual(['H2']);
+    const codes = analysis.issues.map(issue => issue.code);
+    expect(codes).toContain('refuted_support');
   });
 
   it('detects cycles and reports them without hanging', () => {
@@ -68,15 +87,18 @@ describe('graph-analysis', () => {
     expect(codes).toContain('untested_hypothesis');
   });
 
-  it('finds contradictions between hypotheses sharing dependencies', () => {
+  it('flags contradictions only for atoms with BOTH verified supporting and refuting evidence', () => {
     const graph = byId([
       atom({ atomId: 'P1', atomType: 'premise' }),
+      // Sibling hypotheses sharing a dependency are rivals, NOT contradictions.
       atom({ atomId: 'H1', atomType: 'hypothesis', content: 'It is X', dependencies: ['P1'] }),
       atom({ atomId: 'H2', atomType: 'hypothesis', content: 'It is Y', dependencies: ['P1'] }),
+      atom({ atomId: 'V1', atomType: 'verification', dependencies: ['H1'], isVerified: true }),
+      atom({ atomId: 'V2', atomType: 'verification', dependencies: ['H1'], isVerified: true, polarity: 'refutes' }),
     ]);
     const analysis = analyzeGraph(graph);
     expect(analysis.contradictions).toEqual([
-      { a: 'H1', b: 'H2', sharedDependencies: ['P1'] },
+      { atomId: 'H1', supportedBy: ['V1'], refutedBy: ['V2'] },
     ]);
   });
 

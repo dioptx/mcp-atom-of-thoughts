@@ -1,7 +1,7 @@
 import { AtomData, AtomType, VALID_ATOM_TYPES } from './types.js';
 
 export interface GraphIssue {
-  code: 'cycle' | 'dangling_dependency' | 'unverified_conclusion' | 'unsupported_conclusion' | 'untested_hypothesis' | 'weak_support';
+  code: 'cycle' | 'dangling_dependency' | 'unverified_conclusion' | 'unsupported_conclusion' | 'untested_hypothesis' | 'weak_support' | 'refuted_support' | 'refuted_conclusion' | 'low_effective_conclusion';
   atomIds: string[];
   message: string;
 }
@@ -12,7 +12,14 @@ export interface AtomAnalysis {
   confidence: number;
   effectiveConfidence: number;
   isVerified: boolean;
+  isRefuted?: boolean;
   dependents: string[];
+}
+
+export interface Contradiction {
+  atomId: string;
+  supportedBy: string[];
+  refutedBy: string[];
 }
 
 export interface GraphAnalysis {
@@ -25,7 +32,9 @@ export interface GraphAnalysis {
   danglingDependencies: Array<{ atomId: string; missing: string[] }>;
   atoms: AtomAnalysis[];
   weakestLinks: AtomAnalysis[];
-  contradictions: Array<{ a: string; b: string; sharedDependencies: string[] }>;
+  weakestLinksCriterion: string;
+  contradictions: Contradiction[];
+  refuted: string[];
   criticalPath: string[] | null;
   issues: GraphIssue[];
 }
@@ -90,9 +99,13 @@ export function topologicalOrder(atoms: Record<string, AtomData>): string[] | nu
 
 /**
  * Effective confidence = own confidence x weakest effective confidence among
- * dependencies. Captures that a confident atom resting on a shaky support
- * chain is itself shaky. Cycle-safe: an in-progress dependency contributes
- * nothing (cycles are reported separately).
+ * dependencies, with two overrides grounded in verification semantics:
+ * - A VERIFIED atom anchors its chain: empirical verification resets the
+ *   support discount, so eff = own confidence (a reproduced result is not
+ *   weakened by how shaky the reasoning that led to it was).
+ * - A REFUTED atom has eff = 0, and everything resting on it inherits that.
+ * Cycle-safe: an in-progress dependency contributes nothing (cycles are
+ * reported separately).
  */
 export function effectiveConfidences(atoms: Record<string, AtomData>): Map<string, number> {
   const memo = new Map<string, number>();
@@ -103,12 +116,13 @@ export function effectiveConfidences(atoms: Record<string, AtomData>): Map<strin
     if (!atom) return 1;
     const cached = memo.get(id);
     if (cached !== undefined) return cached;
+    if (atom.isRefuted) { memo.set(id, 0); return 0; }
     if (visiting.has(id)) return atom.confidence;
     visiting.add(id);
     const depEffs = atom.dependencies.filter(dep => atoms[dep]).map(eff);
     visiting.delete(id);
     const support = depEffs.length > 0 ? Math.min(...depEffs) : 1;
-    const value = atom.confidence * support;
+    const value = atom.isVerified ? atom.confidence : atom.confidence * support;
     memo.set(id, value);
     return value;
   };
@@ -117,16 +131,30 @@ export function effectiveConfidences(atoms: Record<string, AtomData>): Map<strin
   return memo;
 }
 
-export function findContradictions(atoms: Record<string, AtomData>): Array<{ a: string; b: string; sharedDependencies: string[] }> {
-  const candidates = Object.values(atoms).filter(atom => atom.atomType === 'hypothesis' || atom.atomType === 'conclusion');
-  const contradictions: Array<{ a: string; b: string; sharedDependencies: string[] }> = [];
-  for (let i = 0; i < candidates.length; i++) {
-    for (let j = i + 1; j < candidates.length; j++) {
-      const a = candidates[i];
-      const b = candidates[j];
-      if (a.content === b.content) continue;
-      const shared = a.dependencies.filter(dep => b.dependencies.includes(dep));
-      if (shared.length > 0) contradictions.push({ a: a.atomId, b: b.atomId, sharedDependencies: shared });
+/**
+ * A contradiction is an atom with BOTH verified supporting and verified
+ * refuting verification evidence. Sibling hypotheses sharing a dependency are
+ * NOT contradictions — rival alternatives branching from one reasoning atom
+ * is the normal AoT pattern.
+ */
+export function findContradictions(atoms: Record<string, AtomData>): Contradiction[] {
+  const supportedBy = new Map<string, string[]>();
+  const refutedBy = new Map<string, string[]>();
+  for (const atom of Object.values(atoms)) {
+    if (atom.atomType !== 'verification' || !atom.isVerified) continue;
+    const bucket = atom.polarity === 'refutes' ? refutedBy : supportedBy;
+    for (const dep of atom.dependencies) {
+      if (!atoms[dep]) continue;
+      const list = bucket.get(dep) ?? [];
+      list.push(atom.atomId);
+      bucket.set(dep, list);
+    }
+  }
+  const contradictions: Contradiction[] = [];
+  for (const [atomId, refuters] of refutedBy) {
+    const supporters = supportedBy.get(atomId) ?? [];
+    if (supporters.length > 0) {
+      contradictions.push({ atomId, supportedBy: supporters, refutedBy: refuters });
     }
   }
   return contradictions;
@@ -167,13 +195,17 @@ export function analyzeGraph(atoms: Record<string, AtomData>, options: { weakThr
     confidence: atoms[id].confidence,
     effectiveConfidence: Number((effective.get(id) ?? atoms[id].confidence).toFixed(4)),
     isVerified: atoms[id].isVerified,
+    ...(atoms[id].isRefuted ? { isRefuted: true } : {}),
     dependents: dependents.get(id) ?? [],
   }));
 
+  // Selective, not top-N: every atom whose effective confidence falls below
+  // the threshold, weakest first. Leaves included — a weak conclusion is a
+  // weak link even with nothing resting on it.
   const weakestLinks = atomAnalyses
-    .filter(a => a.dependents.length > 0)
-    .sort((a, b) => a.effectiveConfidence - b.effectiveConfidence)
-    .slice(0, 5);
+    .filter(a => a.effectiveConfidence < weakThreshold)
+    .sort((a, b) => a.effectiveConfidence - b.effectiveConfidence);
+  const weakestLinksCriterion = `effectiveConfidence < ${weakThreshold} (all matches, ascending)`;
 
   const contradictions = findContradictions(atoms);
 
@@ -188,7 +220,7 @@ export function analyzeGraph(atoms: Record<string, AtomData>, options: { weakThr
     issues.push({ code: 'dangling_dependency', atomIds: [dangling.atomId], message: `${dangling.atomId} depends on missing atoms: ${dangling.missing.join(', ')}` });
   }
   for (const conclusion of conclusions) {
-    if (!conclusion.isVerified) {
+    if (!conclusion.isVerified && !conclusion.isRefuted) {
       issues.push({ code: 'unverified_conclusion', atomIds: [conclusion.atomId], message: `Conclusion ${conclusion.atomId} is not verified` });
     }
     if (conclusion.dependencies.length === 0) {
@@ -196,16 +228,34 @@ export function analyzeGraph(atoms: Record<string, AtomData>, options: { weakThr
     }
   }
   for (const atom of Object.values(atoms)) {
-    if (atom.atomType === 'hypothesis' && !atom.isVerified) {
+    if (atom.atomType === 'hypothesis' && !atom.isVerified && !atom.isRefuted) {
       const tested = (dependents.get(atom.atomId) ?? []).some(id => atoms[id]?.atomType === 'verification');
       if (!tested) {
         issues.push({ code: 'untested_hypothesis', atomIds: [atom.atomId], message: `Hypothesis ${atom.atomId} has no verification atom` });
       }
     }
   }
+  const refuted = Object.values(atoms).filter(atom => atom.isRefuted).map(atom => atom.atomId);
+  for (const atom of Object.values(atoms)) {
+    const refutedDeps = atom.dependencies.filter(dep => atoms[dep]?.isRefuted);
+    if (refutedDeps.length > 0) {
+      issues.push({ code: 'refuted_support', atomIds: [atom.atomId, ...refutedDeps], message: `${atom.atomId} rests on refuted atom(s): ${refutedDeps.join(', ')}` });
+    }
+    if (atom.isRefuted && atom.atomType === 'conclusion') {
+      issues.push({ code: 'refuted_conclusion', atomIds: [atom.atomId], message: `Conclusion ${atom.atomId} has been refuted by verified evidence` });
+    }
+  }
   for (const analysis of atomAnalyses) {
     if (analysis.effectiveConfidence < weakThreshold && analysis.dependents.length > 0) {
-      issues.push({ code: 'weak_support', atomIds: [analysis.atomId], message: `${analysis.atomId} supports ${analysis.dependents.length} atom(s) with effective confidence ${analysis.effectiveConfidence}` });
+      issues.push({ code: 'weak_support', atomIds: [analysis.atomId], message: `Effective confidence of ${analysis.atomId} is ${analysis.effectiveConfidence} (below ${weakThreshold}); ${analysis.dependents.length} dependent atom(s) rest on it: ${analysis.dependents.join(', ')}` });
+    }
+  }
+  // Termination uses RAW confidence; surface when a would-terminate
+  // conclusion is actually resting on weak support.
+  for (const conclusion of conclusions) {
+    const eff = effective.get(conclusion.atomId) ?? 0;
+    if (conclusion.isVerified && conclusion.confidence >= 0.9 && eff < weakThreshold) {
+      issues.push({ code: 'low_effective_conclusion', atomIds: [conclusion.atomId], message: `Verified conclusion ${conclusion.atomId} terminates the session at raw confidence ${conclusion.confidence}, but its effective (support-propagated) confidence is only ${Number(eff.toFixed(4))}` });
     }
   }
 
@@ -219,7 +269,9 @@ export function analyzeGraph(atoms: Record<string, AtomData>, options: { weakThr
     danglingDependencies,
     atoms: atomAnalyses,
     weakestLinks,
+    weakestLinksCriterion,
     contradictions,
+    refuted,
     criticalPath: bestConclusion ? criticalPathTo(atoms, effective, bestConclusion.atomId) : null,
     issues,
   };

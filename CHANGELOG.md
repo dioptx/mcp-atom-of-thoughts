@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added — friction burn-down (63-item backlog from the self-improvement loop)
+
+- **Refuting evidence is first-class.** Verification atoms carry a `polarity` (`supports`, default, or `refutes`; CLI `--refutes`, `aot set --polarity`). A verified refuting verification marks its dependencies `isRefuted` (and un-verifies them) instead of asserting the opposite of the evidence; refuting a conclusion removes it from `verifiedConclusions` and blocks termination. Refuted atoms have effective confidence 0, appear in `analyze` under `refuted`, and trigger `refuted_support`/`refuted_conclusion` lints.
+- **Evidence attachments**: `--evidence a,b` on `fast`/`full`/`set` stores artifact refs (paths, URLs) on atoms, shown in `list`/`show` and preserved through export/import.
+- **Import + file-based analysis**: `aot import <graph.json>` re-imports `aot export` output (round-trippable, `--replace` to reset first); `aot analyze --from file` and `aot graph --from file` inspect a graph file without touching session state.
+- **CI gate mode**: `aot analyze --gate [--failOn code,code]` exits 1 when (selected) lint issues exist.
+- **`aot archive [session]`** marks a session completed (eligible for gc); `--reopen` reverses it. `aot set` that pushes a session past its termination condition now archives it (reported as `sessionArchived`).
+- **`--state <path>` global flag** targets any state file without `AOT_STATE` env gymnastics.
+- **Machine-readable error codes**: `ATOM_NOT_FOUND`, `HAS_DEPENDENTS`, `DEPENDENCY_CYCLE`, `MISSING_DEPENDENCY`, `INVALID_CONFIDENCE`, `SESSION_NOT_FOUND`, `SESSION_EXISTS`, `INVALID_POLARITY`, `NO_FIELDS`, `VALIDATION_ERROR`, `INVALID_JSON`, `INVALID_GRAPH_FILE` — replacing blanket `UNKNOWN`; batch/plan/call payload failures return structured validation errors with field paths.
+
+### Changed — friction burn-down
+
+- **fast/full parity**: fast mode now validates dependency existence, derives depth (no more `depth: null`), and reports `depth` in its payload. Fast no longer auto-spawns conclusions for merely-confident *unverified* hypotheses; auto-conclusions fire only for verified hypotheses ≥ 0.8 and never duplicate (skipped when a conclusion already depends on the hypothesis).
+- **Unified verification propagation** (create-time and `set --verified` now share one path): supporting verification verifies hypothesis/conclusion/nested-verification dependencies — premises and reasoning are never silently flipped; creation-time verified conclusions register in `verifiedConclusions` immediately.
+- **Effective confidence semantics**: a *verified* atom anchors its chain (eff = own confidence — empirical verification resets the support discount); refuted atoms drop to 0. `weakestLinks` is now selective (all atoms below the threshold, ascending, leaves included) with an explicit `weakestLinksCriterion`, not a fixed top-5.
+- **Contradictions redefined**: an atom with BOTH verified supporting and verified refuting evidence (`{atomId, supportedBy, refutedBy}`). Sibling hypotheses sharing a dependency are rivals, not contradictions — that noise is gone. New `low_effective_conclusion` lint flags termination-grade conclusions resting on weak support.
+- **Read commands are read-only**: `sessions`/`status`/`export`/`list`/`show`/`analyze`/`graph` take no lock and never rewrite state; `sessions` parses state once, and both `sessions` and `list`/`show` add ISO timestamps alongside epoch ms.
+- **gc data-loss guard**: deleting completed sessions that still contain atoms now requires `--yes`; without it they are listed under `kept` with the reason, and only empty sessions are pruned.
+- **Termination transparency**: `status` explains itself (`Continue reasoning: depth 2/5; best verified conclusion at 0.85 (needs >= 0.9)`) plus a structured `detail` block with thresholds.
+- **Flag ergonomics**: help-screen kebab forms of `no*` flags (`--no-br`, `--no-beads`, ...) now parse (rewritten to their declared camelCase names); passing a positional as a flag (`aot new --sessionId x`) hints at the positional form; help examples render kebab-case; `dag --dryRun` labels the br stage `dry-run` instead of `ok`; atom creation reports `confidenceDefaulted: true` when 0.7 was assumed; overwrites return `overwritten: true`; auto-spawned sessions are announced via `autoSpawnedSession`; empty `aot set` errors (`NO_FIELDS`) and successful sets list `changed` fields.
+
 ### Added
 
 - Graph introspection commands: `aot list` (type/verified/min-confidence filters) and `aot show <id>` (atom with dependencies, dependents, effective confidence, and per-atom lint issues).
