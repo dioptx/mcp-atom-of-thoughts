@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'incur';
 import { summarizeBrSync, syncGraphToBr } from '../src/integrations/br.js';
 import { summarizeBvRobot } from '../src/integrations/bv.js';
-import { buildDagAtoms, buildDagGraph, normalizeDag, summarizeDag, syncDagToLinear } from '../src/integrations/dag.js';
+import { buildDagAtoms, buildDagGraph, normalizeDag, resolveDagSession, summarizeDag, syncDagToLinear } from '../src/integrations/dag.js';
 import { buildPexAtoms, normalizePexTarget, pexSourcegraphArgs } from '../src/integrations/pex.js';
 import { commandErrorPayload, ExternalCommandError, errorToPayload, type CommandResult } from '../src/integrations/shell-json.js';
 
@@ -213,5 +213,56 @@ describe('CLI integration helpers', () => {
       message: 'Input validation failed',
       issues: [expect.objectContaining({ path: ['nodes', 0, 'id'], message: expect.stringContaining('expected string') })],
     });
+  });
+});
+
+describe('resolveDagSession', () => {
+  it('prefers the explicit --session-id flag over everything else', () => {
+    expect(resolveDagSession({
+      flagSessionId: 'other',
+      payloadSessionId: 'embedded',
+      activeSessionId: 'api500',
+      activeSessionStatus: 'active',
+    })).toEqual({ sessionId: 'other', sessionSource: 'flag' });
+  });
+
+  it('prefers the payload sessionId over the active session', () => {
+    expect(resolveDagSession({
+      payloadSessionId: 'embedded',
+      activeSessionId: 'api500',
+      activeSessionStatus: 'active',
+    })).toEqual({ sessionId: 'embedded', sessionSource: 'payload' });
+  });
+
+  it('targets the active session by default, not "default"', () => {
+    expect(resolveDagSession({ activeSessionId: 'api500', activeSessionStatus: 'active' }))
+      .toEqual({ sessionId: 'api500', sessionSource: 'active' });
+  });
+
+  it('still targets a completed active session but warns loudly', () => {
+    const resolved = resolveDagSession({ activeSessionId: 'api500', activeSessionStatus: 'completed' });
+    expect(resolved.sessionId).toBe('api500');
+    expect(resolved.sessionSource).toBe('active');
+    expect(resolved.warning).toContain('api500');
+    expect(resolved.warning).toContain('completed');
+    expect(resolved.warning).toContain('--session-id');
+  });
+
+  it('does not warn when the explicit flag targets a session while another is completed', () => {
+    expect(resolveDagSession({
+      flagSessionId: 'other',
+      activeSessionId: 'api500',
+      activeSessionStatus: 'completed',
+    })).toEqual({ sessionId: 'other', sessionSource: 'flag' });
+  });
+
+  it('treats empty and whitespace-only IDs as absent', () => {
+    expect(resolveDagSession({ flagSessionId: '', payloadSessionId: '  ', activeSessionId: 'api500', activeSessionStatus: 'active' }))
+      .toEqual({ sessionId: 'api500', sessionSource: 'active' });
+  });
+
+  it('falls back to "default" only when nothing is resolvable', () => {
+    expect(resolveDagSession()).toEqual({ sessionId: 'default', sessionSource: 'fallback' });
+    expect(resolveDagSession({ activeSessionId: '' })).toEqual({ sessionId: 'default', sessionSource: 'fallback' });
   });
 });

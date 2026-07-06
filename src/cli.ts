@@ -11,7 +11,7 @@ import { exportGraph } from './graph-export.js';
 import { getAllTools } from './tools.js';
 import { brCommandAvailable, summarizeBrSync, syncGraphToBr, type BrSyncOptions } from './integrations/br.js';
 import { bvCommandAvailable, runBvRobot, summarizeBvRobot, type BvRobotCommand } from './integrations/bv.js';
-import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, summarizeDag, syncDagToLinear } from './integrations/dag.js';
+import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, resolveDagSession, summarizeDag, syncDagToLinear } from './integrations/dag.js';
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
@@ -769,7 +769,7 @@ cli.command('dag', {
   options: z.object({
     dryRun: z.boolean().optional().describe('Preview AoT/br/Linear writes without mutating state or trackers'),
     trace: z.boolean().optional().describe('Show upstream AoT trace'),
-    sessionId: z.string().optional().describe('Override AoT session ID'),
+    sessionId: z.string().optional().describe('Target AoT session (default: payload sessionId, then active session)'),
     tool: z.enum(['AoT-fast', 'AoT-full']).default('AoT-full').describe('AoT tool used for generated atoms'),
     noAot: z.boolean().optional().describe('Skip creating AoT atoms'),
     noGit: z.boolean().optional().describe('Skip git/Linear branch context capture'),
@@ -800,7 +800,19 @@ cli.command('dag', {
     const meta = pipelineMeta('dag');
     try {
       const parsed = DagPayload.parse(readJsonArg(args.dag));
-      const dag = normalizeDag({ ...parsed, sessionId: options.sessionId ?? parsed.sessionId }, options.sessionId ?? 'default');
+      // Session precedence matches every other command: explicit flag >
+      // payload sessionId > active session > 'default'. Dry-run and real run
+      // resolve identically because both use this one resolution.
+      const stateServer = makeServer();
+      const activeSessionId = stateServer.getActiveSessionId();
+      const session = resolveDagSession({
+        flagSessionId: options.sessionId,
+        payloadSessionId: parsed.sessionId,
+        activeSessionId,
+        activeSessionStatus: stateServer.listSessions().find(s => s.id === activeSessionId)?.status,
+      });
+      if (session.warning) console.error(`aot dag: ${session.warning}`);
+      const dag = normalizeDag({ ...parsed, sessionId: session.sessionId });
       const git = options.noGit ? undefined : collectGitDagContext(options.brCwd, true);
       const atoms = buildDagAtoms(dag, { tool: options.tool, git });
       const atomResult = options.noAot
@@ -839,6 +851,9 @@ cli.command('dag', {
         ...meta,
         status: 'ok',
         dryRun: Boolean(options.dryRun),
+        sessionId: dag.sessionId,
+        sessionSource: session.sessionSource,
+        sessionWarning: session.warning,
         dag: summarizeDag(dag),
         git,
         atoms: atomResult,

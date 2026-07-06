@@ -117,6 +117,48 @@ export interface LinearDagOptions {
   profile?: string;
 }
 
+export type DagSessionSource = 'flag' | 'payload' | 'active' | 'fallback';
+
+export interface ResolvedDagSession {
+  sessionId: string;
+  sessionSource: DagSessionSource;
+  warning?: string;
+}
+
+function nonEmpty(value?: string): string | undefined {
+  return value && value.trim().length > 0 ? value : undefined;
+}
+
+/**
+ * Resolves the target session for `aot dag`, matching the precedence every
+ * other command uses: explicit `--session-id` flag > `sessionId` embedded in
+ * the DAG payload > the active session > `'default'`. Never routes to
+ * `'default'` while another session is active, and when the active session is
+ * no longer active (completed/archived) it is still targeted but with a
+ * warning so misroutes are visible instead of silent.
+ */
+export function resolveDagSession(input: {
+  flagSessionId?: string;
+  payloadSessionId?: string;
+  activeSessionId?: string;
+  activeSessionStatus?: string;
+} = {}): ResolvedDagSession {
+  const flag = nonEmpty(input.flagSessionId);
+  if (flag) return { sessionId: flag, sessionSource: 'flag' };
+  const payload = nonEmpty(input.payloadSessionId);
+  if (payload) return { sessionId: payload, sessionSource: 'payload' };
+  const active = nonEmpty(input.activeSessionId);
+  if (active) {
+    const status = input.activeSessionStatus;
+    const resolved: ResolvedDagSession = { sessionId: active, sessionSource: 'active' };
+    if (status !== undefined && status !== 'active') {
+      resolved.warning = `active session "${active}" is ${status}; writing DAG atoms there anyway (pass --session-id to target another session)`;
+    }
+    return resolved;
+  }
+  return { sessionId: 'default', sessionSource: 'fallback' };
+}
+
 const BLOCKING_RELATIONS = new Set(['depends_on', 'requires', 'blocks', 'blocked_by', 'parent_child']);
 const DEPENDENT_TO_DEPENDENCY = new Set(['depends_on', 'requires', 'constrained_by', 'blocked_by', 'entailed_by']);
 

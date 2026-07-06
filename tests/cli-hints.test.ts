@@ -85,10 +85,21 @@ describe('booleanFlagLiteralHint', () => {
     expect(hint).toContain('--verified=true');
   });
 
+  it('is case-insensitive on the literal (--verified False/TRUE/FaLsE)', () => {
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'False'], flags)).toContain('--verified=false');
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'FALSE'], flags)).toContain('--verified=false');
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'TRUE'], flags)).toContain('--verified=true');
+    expect(booleanFlagLiteralHint(['set', 'H1', '--verified', 'True'], flags)).toContain('--verified=true');
+    expect(booleanFlagLiteralHint(['gc', '--dry-run', 'FaLsE'], flags)).toContain('--dryRun=false');
+    expect(booleanFlagLiteralHint(['set', 'H1', '--no-verified', 'True'], flags)).toContain('--verified=true');
+  });
+
   // Adversarial negatives: inputs that must NOT trigger the guard.
   it('does not fire on non-boolean flags taking literal true/false values', () => {
     expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'true'], flags)).toBeNull();
     expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'false'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'True'], flags)).toBeNull();
+    expect(booleanFlagLiteralHint(['set', 'H1', '--content', 'FALSE'], flags)).toBeNull();
   });
 
   it('does not fire on the explicit = form or bare boolean flags', () => {

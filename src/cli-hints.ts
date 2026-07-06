@@ -69,12 +69,15 @@ export function booleanFlagLiteralHint(argv: string[], booleanFlags: ReadonlySet
     if (token === '--') break;
     if (!token.startsWith('--') || token.includes('=')) continue;
     const next = argv[i + 1];
-    if (next !== 'true' && next !== 'false') continue;
+    // Case-insensitive: `--verified False`/`TRUE`/`False` are just as
+    // silently dropped by the parser as the lowercase literals.
+    const nextLower = next.toLowerCase();
+    if (nextLower !== 'true' && nextLower !== 'false') continue;
     const raw = token.slice(2);
     const negated = raw.startsWith('no-') && booleanFlags.has(kebabToCamel(raw.slice(3)));
     const name = negated ? kebabToCamel(raw.slice(3)) : kebabToCamel(raw);
     if (!negated && !booleanFlags.has(name)) continue;
-    const wanted = next === 'true';
+    const wanted = nextLower === 'true';
     return [
       `Ambiguous boolean flag: "${token} ${next}". Bare ${token} already means ${negated ? 'false' : 'true'}, and "${next}" would be silently ignored as a stray positional.`,
       `Use the explicit form instead: --${name}=${wanted ? 'true' : 'false'}${wanted ? ` (or bare --${name})` : ` (or --no-${name})`}.`,
