@@ -8,7 +8,7 @@ import { Cli, Errors, z } from 'incur';
 import { AtomOfThoughtsServer, type AtomServerSnapshot } from './atom-server.js';
 import { AtomOfThoughtsLightServer } from './atom-light-server.js';
 import { exportGraph, graphDataToAtoms } from './graph-export.js';
-import type { GraphData } from './types.js';
+import type { CausalLink, GraphData } from './types.js';
 import { getAllTools } from './tools.js';
 import { brCommandAvailable, summarizeBrSync, syncGraphToBr, type BrSyncOptions } from './integrations/br.js';
 import { bvCommandAvailable, runBvRobot, summarizeBvRobot, type BvRobotCommand } from './integrations/bv.js';
@@ -16,6 +16,7 @@ import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, resol
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
 import { analyzeGraph } from './graph-analysis.js';
+import { analyzeLoops } from './systems-analysis.js';
 import { renderGraph } from './graph-render.js';
 import { booleanFlagLiteralHint, booleanOptionNames, graphFormatMisuseHint, positionalFlagMisuseHint, rewriteNegatedBoolFlags } from './cli-hints.js';
 
@@ -52,6 +53,12 @@ function withDomainErrors<T>(fn: () => T): T {
     if (error instanceof Errors.IncurError) throw error;
     const message = error instanceof Error ? error.message : String(error);
     const rules: Array<[RegExp, string, string | undefined]> = [
+      // Systems-layer rules FIRST: the generic /cycle/i rule below would
+      // shadow them (systems-layer messages must say "causal loop", never
+      // the bare word "cycle").
+      [/causal link .* already exists/i, 'CAUSAL_LINK_EXISTS', 'One causal link per (from,to) pair; `aot sys unlink` it first to change sign/gain.'],
+      [/causal link .* not found/i, 'CAUSAL_LINK_NOT_FOUND', 'Use `aot sys loops` or `aot export` to inspect existing causal links.'],
+      [/refuted atom/i, 'REFUTED_ATOM', 'Refuted atoms are excluded from causal analysis; link an active atom instead.'],
       [/Atom with ID .* not found/i, 'ATOM_NOT_FOUND', 'Use `aot list` to see atom IDs in the session.'],
       [/has dependents/i, 'HAS_DEPENDENTS', 'Pass --force to detach dependents and remove.'],
       [/cycle/i, 'DEPENDENCY_CYCLE', 'Adjust --deps so the atom does not transitively depend on itself.'],
@@ -376,7 +383,7 @@ function runAtomCommand(command: string, options: {
       result = { status: 'success', command, maxDepth: server.maxDepth };
       break;
     case 'export':
-      result = { status: 'success', command, graph: exportGraph(server.getAtoms(options.sessionId), server.getAtomOrder(options.sessionId), options.title) };
+      result = { status: 'success', command, graph: exportGraph(server.getAtoms(options.sessionId), server.getAtomOrder(options.sessionId), options.title, server.getCausalLinks(options.sessionId)) };
       break;
     case 'new_session':
       result = { status: 'success', command, sessionId: server.newSession(options.sessionId), activeSessionId: server.getActiveSessionId() };
@@ -424,7 +431,7 @@ function passthrough(args: string[]): Promise<{ exitCode: number | null }> {
 function exportCurrentGraph(options: BrSyncOptions = {}): { graph: ReturnType<typeof exportGraph>; sessionId: string } {
   const server = makeServer();
   const sessionId = options.sessionId ?? server.getActiveSessionId();
-  const graph = exportGraph(server.getAtoms(options.sessionId), server.getAtomOrder(options.sessionId), options.title);
+  const graph = exportGraph(server.getAtoms(options.sessionId), server.getAtomOrder(options.sessionId), options.title, server.getCausalLinks(options.sessionId));
   return { graph, sessionId };
 }
 
@@ -1118,26 +1125,38 @@ cli.command('show', {
   },
 });
 
+/** Loosely validate causal links carried by an exported graph file. */
+function causalLinksFromGraph(graph: GraphData): CausalLink[] {
+  if (!Array.isArray(graph.causalLinks)) return [];
+  return graph.causalLinks.filter((link): link is CausalLink =>
+    !!link && typeof link === 'object'
+    && typeof link.from === 'string' && typeof link.to === 'string'
+    && (link.sign === '+' || link.sign === '-'));
+}
+
 /**
- * Resolve the atoms map for analyze/graph: either a session from persistent
- * state, or a graph file (`--from`): exported GraphData or a raw atoms map.
+ * Resolve the atoms map for analyze/graph/sys: either a session from
+ * persistent state, or a graph file (`--from`): exported GraphData or an
+ * `aot export` payload. Causal links ride along when present.
  */
-function atomsForInspection(options: { sessionId?: string; from?: string }): { atoms: Record<string, import('./types.js').AtomData>; atomOrder: string[]; source: string } {
+function atomsForInspection(options: { sessionId?: string; from?: string }): { atoms: Record<string, import('./types.js').AtomData>; atomOrder: string[]; causalLinks: CausalLink[]; source: string } {
   if (options.from) {
     const parsed = readJsonArg(options.from.startsWith('@') || options.from === '-' ? options.from : `@${options.from}`) as Record<string, unknown>;
     if (Array.isArray(parsed.nodes)) {
-      const { atoms, atomOrder } = graphDataToAtoms(parsed as unknown as GraphData);
-      return { atoms, atomOrder, source: `file:${options.from}` };
+      const graph = parsed as unknown as GraphData;
+      const { atoms, atomOrder } = graphDataToAtoms(graph);
+      return { atoms, atomOrder, causalLinks: causalLinksFromGraph(graph), source: `file:${options.from}` };
     }
     if (parsed.graph && Array.isArray((parsed.graph as GraphData).nodes)) {
-      const { atoms, atomOrder } = graphDataToAtoms(parsed.graph as GraphData);
-      return { atoms, atomOrder, source: `file:${options.from}` };
+      const graph = parsed.graph as GraphData;
+      const { atoms, atomOrder } = graphDataToAtoms(graph);
+      return { atoms, atomOrder, causalLinks: causalLinksFromGraph(graph), source: `file:${options.from}` };
     }
     throw new Errors.IncurError({ code: 'INVALID_GRAPH_FILE', message: 'File is neither exported GraphData ({nodes,links}) nor an `aot export` payload ({graph:{nodes,links}}).', hint: 'Export with `aot export` or `aot cmd export`.' });
   }
   const server = makeServer();
   const sessionId = options.sessionId ?? server.getActiveSessionId();
-  return { atoms: server.getAtoms(options.sessionId), atomOrder: server.getAtomOrder(options.sessionId), source: `session:${sessionId}` };
+  return { atoms: server.getAtoms(options.sessionId), atomOrder: server.getAtomOrder(options.sessionId), causalLinks: server.getCausalLinks(options.sessionId), source: `session:${sessionId}` };
 }
 
 cli.command('analyze', {
@@ -1206,8 +1225,30 @@ cli.command('import', {
       }
       session.verifiedConclusions = session.atomOrder.filter(id =>
         session.atoms[id]?.atomType === 'conclusion' && session.atoms[id].isVerified);
+      // Restore the causal layer (round-trippable since export carries it).
+      // Merge semantics match atoms: existing (from,to) pairs win; links whose
+      // endpoints did not survive the import are dropped.
+      let importedCausalLinks = 0;
+      const fileCausalLinks = causalLinksFromGraph(graph);
+      if (fileCausalLinks.length > 0) {
+        session.causalLinks ??= [];
+        for (const link of fileCausalLinks) {
+          if (!session.atoms[link.from] || !session.atoms[link.to]) continue;
+          if (session.causalLinks.some(existing => existing.from === link.from && existing.to === link.to)) continue;
+          session.causalLinks.push({
+            id: `cl:${link.from}>${link.to}`,
+            from: link.from,
+            to: link.to,
+            sign: link.sign,
+            gain: link.gain ?? 'med',
+            ...(link.label ? { label: link.label } : {}),
+            created: typeof link.created === 'number' ? link.created : Date.now(),
+          });
+          importedCausalLinks++;
+        }
+      }
       saveServer(server);
-      return { status: 'success', sessionId, importedCount: imported, atomCount: Object.keys(session.atoms).length, title: graph.title };
+      return { status: 'success', sessionId, importedCount: imported, atomCount: Object.keys(session.atoms).length, ...(importedCausalLinks > 0 ? { importedCausalLinks } : {}), title: graph.title };
     }));
   },
 });
@@ -1253,6 +1294,115 @@ cli.command('graph', {
     return rendered;
   },
 });
+
+// ---------------------------------------------------------------------------
+// Systems-thinking layer: `aot sys link|unlink|loops`. Mounted as a sub-CLI
+// (incur resolves only the first argv token; space-named literal commands
+// like 'sys link' would be unreachable dead code).
+// ---------------------------------------------------------------------------
+
+// Bare `-` can be eaten by arg parsing; aliases are the escape hatch
+// (`--sign=-` also works).
+const CausalSignSchema = z.enum(['+', '-', 'plus', 'minus', 'pos', 'neg']);
+const CausalGainSchema = z.enum(['low', 'med', 'high']);
+
+function normalizeCausalSign(sign: z.infer<typeof CausalSignSchema>): '+' | '-' {
+  return sign === '+' || sign === 'plus' || sign === 'pos' ? '+' : '-';
+}
+
+const sys = Cli.create('sys', {
+  description: 'Systems-thinking layer: signed causal links between atoms and feedback-loop (reinforcing/balancing) analysis. Causal loops are legal — they never appear as dependency-cycle issues in `aot analyze`.',
+});
+
+sys.command('link', {
+  description: 'Add a signed causal link between two existing atoms. One link per (from,to) pair; use `--sign minus` or `--sign=-` for opposite-direction influence.',
+  args: z.object({
+    from: z.string().describe('Cause atom ID'),
+    to: z.string().describe('Effect atom ID'),
+  }),
+  options: z.object({
+    sign: CausalSignSchema.describe('Causal sign: +/plus/pos (same direction) or -/minus/neg (opposite)'),
+    gain: CausalGainSchema.default('med').describe('Influence strength: low, med, or high'),
+    label: z.string().optional().describe('Optional human label for the link'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { args: { from: 'H1', to: 'P1' }, options: { sign: 'minus' }, description: 'H1 suppresses P1 (balancing influence)' },
+    { args: { from: 'P1', to: 'R1' }, options: { sign: 'plus', gain: 'high' }, description: 'Strong same-direction influence' },
+  ],
+  run({ args, options }) {
+    return withStateLock(() => withDomainErrors(() => {
+      const server = makeServer();
+      const link = server.addCausalLink({
+        from: args.from,
+        to: args.to,
+        sign: normalizeCausalSign(options.sign),
+        gain: options.gain,
+        label: options.label,
+      }, options.sessionId);
+      saveServer(server);
+      return {
+        status: 'success',
+        sessionId: options.sessionId ?? server.getActiveSessionId(),
+        link: { ...link, createdIso: new Date(link.created).toISOString() },
+      };
+    }));
+  },
+});
+
+sys.command('unlink', {
+  description: 'Remove the causal link between two atoms.',
+  args: z.object({
+    from: z.string().describe('Cause atom ID'),
+    to: z.string().describe('Effect atom ID'),
+  }),
+  options: z.object({
+    sessionId: z.string().optional().describe('Session (default active)'),
+  }),
+  output: AnyOutput,
+  examples: [{ args: { from: 'H1', to: 'P1' }, description: 'Remove the H1 -> P1 causal link' }],
+  run({ args, options }) {
+    return withStateLock(() => withDomainErrors(() => {
+      const server = makeServer();
+      const removed = server.removeCausalLink(args.from, args.to, options.sessionId);
+      saveServer(server);
+      return { status: 'success', sessionId: options.sessionId ?? server.getActiveSessionId(), removed: removed.id };
+    }));
+  },
+});
+
+sys.command('loops', {
+  description: 'Enumerate feedback loops in the causal graph (bounded: max length 12, max 500 loops) and classify each as reinforcing or balancing, with control-theoretic roles (sensor/actuator/goal) and external disturbances. Refuted atoms are excluded. Read-only.',
+  options: z.object({
+    sessionId: z.string().optional().describe('Session (default active)'),
+    kind: z.enum(['reinforcing', 'balancing', 'all']).default('all').describe('Filter by loop kind'),
+    from: z.string().optional().describe('Analyze a graph file (aot export output or GraphData JSON with causalLinks) instead of session state'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { description: 'List all feedback loops in the active session' },
+    { options: { kind: 'reinforcing' as const }, description: 'Only compounding (reinforcing) loops' },
+  ],
+  run({ options }) {
+    return withDomainErrors(() => {
+      const { atoms, causalLinks, source } = atomsForInspection(options);
+      const { loops, controlLoops, truncated } = analyzeLoops({ atoms, causalLinks });
+      const controlByLoop = new Map(controlLoops.map(control => [control.loopId, control]));
+      const filtered = options.kind === 'all' ? loops : loops.filter(loop => loop.kind === options.kind);
+      return {
+        source,
+        causalLinkCount: causalLinks.length,
+        loopCount: filtered.length,
+        totalLoopCount: loops.length,
+        truncated,
+        loops: filtered.map(loop => ({ ...loop, control: controlByLoop.get(loop.id) })),
+      };
+    });
+  },
+});
+
+cli.command(sys);
 
 cli.command('set', {
   description: 'Update an existing atom: content, confidence, verification, polarity, evidence, or dependencies (cycle-checked). Archives the session when the update makes termination hold.',

@@ -1,4 +1,4 @@
-import { AtomData, AtomType, GraphData, GraphNode, GraphLink } from './types.js';
+import { AtomData, AtomType, CausalLink, GraphData, GraphNode, GraphLink } from './types.js';
 
 const TYPE_DEPTH: Record<AtomType, number> = {
   premise: 0,
@@ -11,7 +11,8 @@ const TYPE_DEPTH: Record<AtomType, number> = {
 export function exportGraph(
   atoms: Record<string, AtomData>,
   atomOrder: string[],
-  title?: string
+  title?: string,
+  causalLinks?: CausalLink[]
 ): GraphData {
   const nodes: GraphNode[] = atomOrder
     .filter(id => atoms[id] !== undefined)
@@ -41,10 +42,16 @@ export function exportGraph(
     }
   }
 
+  // Causal layer rides alongside `links`; old readers ignore it. Only links
+  // whose endpoints survive into the export are carried, and the field is
+  // omitted entirely when empty so pre-systems payload shapes are unchanged.
+  const exportedCausal = (causalLinks ?? []).filter(link => atoms[link.from] && atoms[link.to]);
+
   return {
     title: title || 'AoT Plan Visualization',
     nodes,
     links,
+    ...(exportedCausal.length > 0 ? { causalLinks: exportedCausal } : {}),
   };
 }
 

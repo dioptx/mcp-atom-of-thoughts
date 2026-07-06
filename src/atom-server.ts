@@ -1,11 +1,15 @@
 import {
   AtomData,
   AtomType,
+  CausalGain,
+  CausalLink,
+  CausalSign,
   DecompositionState,
   Session,
   SessionSummary,
   VALID_ATOM_TYPES,
 } from './types.js';
+import { dedupeCausalLinks } from './systems-analysis.js';
 import { EventLog } from './events.js';
 
 const DEFAULT_SESSION_ID = 'default';
@@ -45,6 +49,7 @@ export class AtomOfThoughtsServer {
       verifiedConclusions: [],
       decompositionStates: {},
       currentDecompositionId: null,
+      causalLinks: [],
     };
   }
 
@@ -70,6 +75,14 @@ export class AtomOfThoughtsServer {
   public importState(state: Partial<AtomServerSnapshot>): void {
     if (state.sessions && typeof state.sessions === 'object') {
       this.sessions = state.sessions;
+      // Old (pre-systems-layer) sessions have no causalLinks — leave them
+      // absent; getters normalize `?? []`. Hand-edited/imported state may
+      // carry duplicate (from,to) pairs: normalize, earliest `created` wins.
+      for (const session of Object.values(this.sessions)) {
+        if (Array.isArray(session.causalLinks) && session.causalLinks.length > 1) {
+          session.causalLinks = dedupeCausalLinks(session.causalLinks);
+        }
+      }
     }
     if (state.activeSessionId && this.sessions[state.activeSessionId]) {
       this.activeSessionId = state.activeSessionId;
@@ -111,6 +124,7 @@ export class AtomOfThoughtsServer {
     session.verifiedConclusions = [];
     session.decompositionStates = {};
     session.currentDecompositionId = null;
+    session.causalLinks = [];
     session.status = 'active';
     return true;
   }
@@ -150,6 +164,50 @@ export class AtomOfThoughtsServer {
 
   public getAtomOrder(sessionId?: string): string[] {
     return this.getSession(sessionId).atomOrder;
+  }
+
+  // -------------------------------------------------------------------------
+  // Causal links (systems-thinking layer)
+  // -------------------------------------------------------------------------
+
+  public getCausalLinks(sessionId?: string): CausalLink[] {
+    return this.getSession(sessionId).causalLinks ?? [];
+  }
+
+  public addCausalLink(link: { from: string; to: string; sign: CausalSign; gain?: CausalGain; label?: string }, sessionId?: string): CausalLink {
+    const session = this.getSession(sessionId);
+    for (const endpoint of [link.from, link.to]) {
+      const atom = session.atoms[endpoint];
+      if (!atom) throw new Error(`Atom with ID ${endpoint} not found`);
+      if (atom.isRefuted) throw new Error(`Cannot causally link refuted atom ${endpoint}: causal analysis excludes refuted atoms`);
+    }
+    // Materialize on pre-upgrade sessions: read-getters normalizing `?? []`
+    // is not enough for mutation paths.
+    session.causalLinks ??= [];
+    if (session.causalLinks.some(existing => existing.from === link.from && existing.to === link.to)) {
+      throw new Error(`Causal link ${link.from} -> ${link.to} already exists`);
+    }
+    const created: CausalLink = {
+      id: `cl:${link.from}>${link.to}`,
+      from: link.from,
+      to: link.to,
+      sign: link.sign,
+      gain: link.gain ?? 'med',
+      ...(link.label ? { label: link.label } : {}),
+      created: Date.now(),
+    };
+    session.causalLinks.push(created);
+    return created;
+  }
+
+  /** Removes ALL entries matching (from,to) — duplicates can only enter via hand-edited state. */
+  public removeCausalLink(from: string, to: string, sessionId?: string): CausalLink {
+    const session = this.getSession(sessionId);
+    const links = session.causalLinks ?? [];
+    const removed = links.find(link => link.from === from && link.to === to);
+    if (!removed) throw new Error(`Causal link ${from} -> ${to} not found`);
+    session.causalLinks = links.filter(link => !(link.from === from && link.to === to));
+    return removed;
   }
 
   // -------------------------------------------------------------------------
@@ -317,7 +375,7 @@ export class AtomOfThoughtsServer {
     return session;
   }
 
-  public removeAtom(atomId: string, sessionId?: string, force = false): { removed: string; detachedFrom: string[] } {
+  public removeAtom(atomId: string, sessionId?: string, force = false): { removed: string; detachedFrom: string[]; removedCausalLinks?: string[] } {
     const session = this.getSession(sessionId);
     if (!session.atoms[atomId]) throw new Error(`Atom with ID ${atomId} not found`);
 
@@ -334,7 +392,15 @@ export class AtomOfThoughtsServer {
     for (const state of Object.values(session.decompositionStates)) {
       state.subAtoms = state.subAtoms.filter(id => id !== atomId);
     }
-    return { removed: atomId, detachedFrom: dependents };
+    // Same sweep as dependency detachment: causal links touching the removed
+    // atom go with it (with and without --force).
+    const removedCausalLinks = (session.causalLinks ?? [])
+      .filter(link => link.from === atomId || link.to === atomId)
+      .map(link => link.id);
+    if (removedCausalLinks.length > 0) {
+      session.causalLinks = session.causalLinks!.filter(link => link.from !== atomId && link.to !== atomId);
+    }
+    return { removed: atomId, detachedFrom: dependents, ...(removedCausalLinks.length > 0 ? { removedCausalLinks } : {}) };
   }
 
   // -------------------------------------------------------------------------

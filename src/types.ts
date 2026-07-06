@@ -27,6 +27,139 @@ export interface AtomData {
   evidence?: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Systems-thinking layer: signed causal links over the SAME atoms.
+// The epistemic DAG says "what we believe and why"; the causal layer says
+// "how the believed system behaves". Causal cycles are LEGAL (feedback loops).
+// ---------------------------------------------------------------------------
+
+/** Signed causal influence: '+' same direction, '-' opposite. */
+export type CausalSign = '+' | '-';
+export type CausalGain = 'low' | 'med' | 'high';
+
+export interface CausalLink {
+  /** Stable id: `cl:${from}>${to}` — one link per (from,to) pair per session. */
+  id: string;
+  from: string;
+  to: string;
+  sign: CausalSign;
+  /** Defaults to 'med' at write time. */
+  gain?: CausalGain;
+  label?: string;
+  /** Epoch ms; render as ISO in CLI output. */
+  created: number;
+}
+
+export interface CausalGraphInput {
+  atoms: Record<string, AtomData>;
+  causalLinks: CausalLink[];
+}
+
+export type LoopKind = 'reinforcing' | 'balancing';
+
+export interface LoopEdgeRef {
+  from: string;
+  to: string;
+  sign: CausalSign;
+  gain: CausalGain; // resolved (default 'med' applied)
+  linkId: string;
+}
+
+/**
+ * Loop id: `loop:${atoms.join('>')}` after canonical rotation
+ * (lexicographically smallest atom id first, edge-walk order preserved).
+ * Deterministic across runs and input orderings.
+ */
+export interface LoopAnalysis {
+  id: string;
+  kind: LoopKind;
+  atoms: string[]; // in edge-walk order, canonical rotation
+  edges: LoopEdgeRef[];
+  negativeSignCount: number;
+  positiveSignCount: number;
+  loopGain: number; // product of numeric edge gains
+  /**
+   * min effectiveConfidence over loop atoms, computed on the FULL atom set
+   * (before refuted atoms are filtered out) so atoms resting on refuted
+   * support keep their zeroed confidence.
+   */
+  confidenceWeight: number;
+}
+
+export type ControlRole = 'sensor' | 'actuator' | 'goal' | 'disturbance' | 'connector';
+
+export interface ControlLoopAnalysis {
+  loopId: string;
+  loopKind: LoopKind;
+  /** atomId -> roles; includes external disturbance atoms with ['disturbance']. */
+  roles: Record<string, ControlRole[]>;
+  /** Non-loop atoms with an active causal link INTO a loop atom. */
+  externalDisturbances: string[];
+  hasSensor: boolean;
+  hasGoal: boolean;
+  hasActuator: boolean;
+  isClosedControlLoop: boolean; // balancing && hasSensor && hasGoal
+  isOpenLoopRisk: boolean; // balancing && !hasSensor
+}
+
+// ---- Round 2 types (declared now for stability, implemented later) ----
+
+export type LeverageRationaleCode =
+  | 'LOOP_HUB' | 'HIGH_CAUSAL_OUT_DEGREE' | 'REINFORCING_DRIVER' | 'BALANCING_DRIVER'
+  | 'HIGH_EFFECTIVE_CONFIDENCE' | 'LOW_EFFECTIVE_CONFIDENCE' | 'ACTUATOR_ROLE' | 'SENSOR_ROLE';
+
+export interface LeveragePoint {
+  atomId: string;
+  rank: number;
+  /** Normalized 0-1; all zero (not NaN) when every raw score is 0. */
+  score: number;
+  effectiveConfidence: number;
+  loopCount: number;
+  causalOutDegree: number;
+  rationaleCodes: LeverageRationaleCode[];
+}
+
+export type SimDirection = 'up' | 'down' | 'ambiguous';
+
+export interface SimulationEffect {
+  atomId: string;
+  direction: SimDirection;
+  provenance: 'first-order' | 'loop-mediated' | 'emergent';
+  pathLinkIds: string[]; // one witness path (deterministic first-found)
+  strength: number; // damped, 0-1
+}
+
+export interface SimulationResult {
+  sourceAtomId: string;
+  inputDirection: 'up' | 'down';
+  effects: SimulationEffect[];
+  loopsTraversed: string[];
+  ambiguousAtomIds: string[];
+  emergentAtomIds: string[];
+}
+
+export type SystemsIssueCode =
+  | 'REINFORCING_COMPOUNDING_RISK' | 'LOOP_CONTRADICTS_CONCLUSION'
+  | 'BALANCING_LOOP_NO_SENSOR' | 'OPEN_LOOP_BALANCING_RISK'
+  | 'ORPHAN_CAUSAL_LINK' | 'SELF_LOOP' | 'DUPLICATE_CAUSAL_LINK'
+  | 'LOOP_ENUMERATION_TRUNCATED';
+
+export interface SystemsIssue {
+  code: SystemsIssueCode;
+  atomIds: string[];
+  loopIds?: string[];
+  message: string;
+}
+
+export interface SystemsAnalysis {
+  loops: LoopAnalysis[];
+  controlLoops: ControlLoopAnalysis[];
+  leveragePoints: LeveragePoint[];
+  issues: SystemsIssue[];
+  /** True when loop enumeration hit MAX_LOOP_COUNT — downstream results may be incomplete. */
+  truncated: boolean;
+}
+
 export interface DecompositionState {
   originalAtomId: string;
   subAtoms: string[];
@@ -44,6 +177,8 @@ export interface Session {
   verifiedConclusions: string[];
   decompositionStates: Record<string, DecompositionState>;
   currentDecompositionId: string | null;
+  /** Absent in pre-systems-layer state files; normalized to [] on access. */
+  causalLinks?: CausalLink[];
 }
 
 export interface SessionSummary {
@@ -82,6 +217,8 @@ export interface GraphData {
   title: string;
   nodes: GraphNode[];
   links: GraphLink[];
+  /** Signed causal layer; absent when the session has no causal links. Old readers ignore it. */
+  causalLinks?: CausalLink[];
 }
 
 export interface Rejection {
