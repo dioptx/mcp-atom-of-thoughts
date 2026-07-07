@@ -420,3 +420,36 @@ Note (matrix row anchors): the analyze issues shape is pinned by
 | D5 | advise_pending as a default gate failure / `--strict` flag | informational-by-default is the pinned round-3 contract; `--failOn advise_pending` already opts in |
 | D6 | corpus or live sgt binary in CI (I5) | fixture SGT_BIN scripts only; the 536 MB corpus never enters CI |
 | D7 | `skillRef` on non-hypothesis atom types | hypotheses are the only retrieval-claim carriers; widening dilutes I2 |
+
+## Worked example — the interleaving, live
+
+A single command sequence against the real sgt corpus (`SGT_BIN`), captured verbatim. It
+shows sgt's progressive-disclosure graph traversal and aot's reasoning trace as **one
+epistemic DAG**, not two systems: the sgt query becomes a `premise`, each decision-tree
+axis a chained `reasoning` atom, each ranked skill a `hypothesis` (carrying `skillRef`
+provenance), each budgeted `context pack` disclosure and each polarity judgement a
+`verification` atom — all confidence-propagated by `aot analyze`.
+
+```
+$ aot sgt route "secure react api authentication with minimal context"   # sgt traversal -> atoms
+$ aot sgt advise                                                          # metacognition: ranked next disclosure
+$ aot sgt expand sgt:q…:h:auth-implementation-patterns…  --budget 900     # progressive disclosure -> scaffold
+$ aot sgt judge  sgt:q…:h:auth-implementation-patterns…  --supports       # polarity verification
+$ aot sgt trace                                                           # the unified interleaved graph:
+
+[P] sgt:q63040425:p (95%) secure react api authentication with minimal context
+└── [R] sgt:q63040425:r:domain (73%) domain: Software Engineering/Backend/APIs/Services (72->38)…
+    ├── [H] …:h:building-api-authentication (70%) … [sgt:building-api-authentication]
+    ├── [H] …:h:auth-implementation-patterns--claude-specific--3f524ab9 ✓ (70%) … [sgt:auth-implementation-patterns…]
+    │   ├── [V] …:e:auth-implementation-patterns… (70%) sgt expand: budgeted excerpts disclosed
+    │   └── [V] …:j:auth-implementation-patterns…:supports ✓ (85%) sgt judgement (supports)
+    ├── [H] …:h:react-context-setup--claude-specific--0f3c8347 (66%) … [sgt:react-context-setup…]
+    ├── [H] …:h:insecure-deserialization-checker--claude-specific--180f0399 (66%) … [sgt:insecure-deserialization-checker…]
+    └── [H] …:h:obsidian-plugin-react-components--unknown--db996cfe (66%) … [sgt:obsidian-plugin-react-components…]
+```
+
+`aot sgt advise` closes the metacognitive loop: it reads the current epistemic state
+(which hypotheses are unexpanded, which are settled, which are refuted) and emits the
+ranked next action — expand high-confidence hypotheses, judge disclosed ones, explore
+laterally, or refine the query — so the disclose→verify→re-route cycle is driven
+programmatically from the graph, not by hand.
