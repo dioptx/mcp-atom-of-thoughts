@@ -41,13 +41,13 @@
       "id": "H2-enumerate-refute",
       "hypothesis": "On logic/CSP tasks, require a hypothesis atom per candidate solution and a refutes-verification for each constraint violation — should lift correctness on shift-rota-style tasks.",
       "axis": "correct",
-      "tested": true
+      "tested": false
     },
     {
       "id": "H1-verify-each-step",
       "hypothesis": "Force one verification atom per intermediate result (not just the final hypothesis) — should raise objective correctness on multi-step numeric tasks by catching propagation errors early.",
       "axis": "correct",
-      "tested": true
+      "tested": false
     }
   ],
   "recommendations": [
@@ -62,30 +62,23 @@
       "recommendation": "Do not mandate a hypothesis atom per candidate (H2 pattern). Instead, tighten the verification-atom contract so a 'refutes' polarity verification can prune/mark isRefuted only when it carries an attached external check (executable constraint eval / trace), rather than a self-asserted atom — grounding refutation in an independent verifier instead of added self-structure."
     }
   ],
-  "results": [
+  "results": [],
+  "priorRuns": [
     {
-      "round": 0,
-      "hypothesis": "S0-baseline-aot",
-      "margin": -0.004101032385312231,
-      "noiseFloor": 0.030747007360187505,
-      "kept": true
+      "run": "run-001",
+      "suite": "3 tasks (2 easy-objective + 1 judged)",
+      "round0Margin": -0.0041,
+      "noiseFloor": 0.0307,
+      "verdict": "honest null — aot ties freeform on tasks easy enough that freeform also scores correct=true; aot's higher quality/trace washed out by correctness+efficiency weighting. See results/run-001.json."
     },
     {
-      "round": 1,
-      "hypothesis": "H1-verify-each-step",
-      "margin": -0.029500198884844453,
-      "noiseFloor": 0.030127075556287186,
-      "kept": false,
-      "analysis": "H1 not only failed to clear the noise floor (margin -0.0295 vs 0.0301) but regressed below the previous best (-0.0041), indicating that forcing a verification atom on every intermediate result adds cost and noise faster than it catches propagation errors. This makes \"add a mandatory gating step\" mechanisms (H3-analyze-gate, and especially the heavy/narrow H4-lean-trace) lower expected leverage, since they share H1's failure mode. H2-enumerate-refute is ranked first because it improves correctness by restructuring the search — generating and refuting alternatives — rather than piling verification overhead onto a single chain, so it is a distinct and cheaper mechanism than the one just falsified."
-    },
-    {
-      "round": 2,
-      "hypothesis": "H2-enumerate-refute",
-      "margin": -0.010620335917105095,
-      "noiseFloor": 0.0330018351067441,
-      "kept": false,
-      "analysis": "H2 regressed: new margin -0.0106 vs prior best -0.0041, both far inside the 0.0330 noise floor, so it is not kept (keep=false). Its failure is evidence against pure structural/prompting mandates — forcing per-candidate hypothesis enumeration plus refute atoms added overhead without a real correctness signal, the same family as H3-analyze-gate, another internal gate. H4-lean-trace ranks first because it introduces an independent external verification signal (execution/formal trace) — the kind of grounding likelier to produce an effect large enough to clear the noise floor on the verifiable subset — whereas H3 is another self-referential structural gate with low expected leverage given H2's result."
+      "run": "run-002",
+      "suite": "6 tasks (adds acid-base delta-delta, infusion rate, 4x4 CSP)",
+      "round0Margin": -0.0837,
+      "noiseFloor": 0.0259,
+      "clears": false,
+      "verdict": "aot DECISIVELY loses (margin -0.084 beyond noise 0.026). Baseline got the hard tasks correct too, so aot overhead is unrepaid cost. Finding: aot pays off only when the base model would otherwise be WRONG; a frontier model rarely errs on textbook multi-step problems, so that regime needs genuinely adversarial tasks, not just more steps. See results/run-002.json."
     }
   ],
-  "lastVerdict": "aot did NOT beat freeform on this suite — honest null result"
+  "lastVerdict": "run-002: aot decisively loses on a suite a strong freeform model already solves. The discriminating regime is base-model-WRONG tasks, which textbook difficulty does not reach for Opus."
 }

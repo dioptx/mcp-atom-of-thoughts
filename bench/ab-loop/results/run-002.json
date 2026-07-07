@@ -1,0 +1,878 @@
+{
+  "rounds": [
+    {
+      "round": 0,
+      "strategyId": "S0-baseline-aot",
+      "perTask": {
+        "aa-gradient": {
+          "baseComposite": [
+            0.8020543024227236,
+            0.984,
+            0.9249578111946533
+          ],
+          "aotComposite": [
+            0.7785,
+            0.8075806182121972,
+            0.8399156223893066
+          ],
+          "baseMean": 0.9036707045391257,
+          "aotMean": 0.8086654135338346,
+          "margin": -0.09500529100529109,
+          "samples": [
+            {
+              "traceTokens": 425,
+              "elapsedSec": 45,
+              "atomCount": 0,
+              "aotUsed": false,
+              "answer": "PAO2 = 0.21 x (760 - 47) - 40/0.8 = 149.73 - 50 = 99.73 mmHg (about 100 mmHg). A-a gradient = 99.73 - 85 = 14.73 mmHg (about 15 mmHg).",
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 72,
+              "trace": 58,
+              "composite": 0.8020543024227236
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation, PAO2 = FiO2 × (Pb − PH2O) − PaCO2/R:\n- Pb − PH2O = 760 − 47 = 713 mmHg\n- PIO2 = 0.21 × 713 = 149.73 mmHg\n- PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 − 50 = 99.73 mmHg ≈ 99.7 mmHg (about 100 mmHg)\n\nStep 2 — A-a oxygen gradient = PAO2 − PaO2:\n- 99.73 − 85 = 14.73 mmHg ≈ 14.7 mmHg (about 15 mmHg)\n\nFinal: PAO2 ≈ 99.7 mmHg; A-a gradient ≈ 14.7 mmHg.",
+              "traceTokens": 255,
+              "elapsedSec": 29,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 96,
+              "trace": 96,
+              "composite": 0.984
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation: PAO2 = FiO2 x (Pb - PH2O) - PaCO2/R.\n- Pb - PH2O = 760 - 47 = 713 mmHg\n- Inspired PO2 = 0.21 x 713 = 149.73 mmHg\n- CO2 term = PaCO2/R = 40/0.8 = 50 mmHg\n- PAO2 = 149.73 - 50 = 99.73 mmHg (approximately 99.7 mmHg)\n\nStep 2 — A-a oxygen gradient = PAO2 - PaO2 = 99.73 - 85 = 14.73 mmHg (approximately 14.7 mmHg).\n\nFinal: PAO2 = 99.7 mmHg; A-a gradient = 14.7 mmHg.",
+              "traceTokens": 597,
+              "elapsedSec": 134,
+              "atomCount": 11,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 95,
+              "trace": 94,
+              "composite": 0.7785
+            },
+            {
+              "answer": "Part 1 — Alveolar PO2 (alveolar gas equation, PAO2 = FiO2·(PB − PH2O) − PaCO2/R):\n- Dry inspired gas pressure: PB − PH2O = 760 − 47 = 713 mmHg\n- Inspired PO2: PiO2 = 0.21 × 713 = 149.73 mmHg\n- CO2 correction: PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 − 50 = 99.73 mmHg (≈ 100 mmHg)\n\nPart 2 — A-a oxygen gradient:\n- A-a = PAO2 − PaO2 = 99.73 − 85 = 14.73 mmHg (≈ 15 mmHg)\n\nFinal: PAO2 ≈ 99.7 mmHg; A-a gradient ≈ 14.7 mmHg.",
+              "traceTokens": 386,
+              "elapsedSec": 45,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 95,
+              "trace": 94,
+              "composite": 0.9249578111946533
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation: PAO2 = FiO2 x (Pb - PH2O) - PaCO2/R.\n- Inspired dry gas pressure: Pb - PH2O = 760 - 47 = 713 mmHg\n- PIO2 = 0.21 x 713 = 149.73 mmHg\n- CO2 term: PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 - 50 = 99.73 mmHg (approx 100 mmHg)\n\nStep 2 — A-a oxygen gradient: A-a = PAO2 - PaO2 = 99.73 - 85 = 14.73 mmHg (approx 15 mmHg)\n\nFinal answers: PAO2 = 99.73 mmHg (~100 mmHg); A-a gradient = 14.73 mmHg (~15 mmHg).",
+              "traceTokens": 560,
+              "elapsedSec": 108,
+              "atomCount": 10,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 93,
+              "trace": 93,
+              "composite": 0.8075806182121972
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation, PAO2 = FiO2 x (PB - PH2O) - PaCO2/R:\n- Inspired PO2 (humidified): PiO2 = 0.21 x (760 - 47) = 0.21 x 713 = 149.73 mmHg\n- CO2 correction term: PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 - 50 = 99.73 mmHg ≈ 99.7 mmHg\n\nStep 2 — Alveolar-arterial oxygen gradient, A-a = PAO2 - PaO2:\n- A-a = 99.73 - 85 = 14.73 mmHg ≈ 14.7 mmHg\n\nFinal: PAO2 ≈ 99.7 mmHg; A-a gradient ≈ 14.7 mmHg (a normal value for this patient).",
+              "traceTokens": 460,
+              "elapsedSec": 110,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 95,
+              "trace": 93,
+              "composite": 0.8399156223893066
+            }
+          ]
+        },
+        "shift-rota": {
+          "baseComposite": [
+            0.7729843463878552,
+            0.8150215311004785,
+            0.7879279835390947
+          ],
+          "aotComposite": [
+            0.7145,
+            0.8858634493078937,
+            0.8427469628054424
+          ],
+          "baseMean": 0.7919779536758095,
+          "aotMean": 0.8143701373711121,
+          "margin": 0.022392183695302603,
+          "samples": [
+            {
+              "answer": "Monday: Ben; Tuesday: Carol; Wednesday: Alice.",
+              "traceTokens": 345,
+              "elapsedSec": 25,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 68,
+              "trace": 12,
+              "composite": 0.7729843463878552
+            },
+            {
+              "answer": "Monday: Ben; Tuesday: Carol; Wednesday: Alice. This is the unique assignment.",
+              "traceTokens": 312,
+              "elapsedSec": 23,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 73,
+              "trace": 22,
+              "composite": 0.8150215311004785
+            },
+            {
+              "answer": "Monday: Ben. Tuesday: Carol. Wednesday: Alice. This is the unique assignment.",
+              "traceTokens": 379,
+              "elapsedSec": 22,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 73,
+              "trace": 22,
+              "composite": 0.7879279835390947
+            },
+            {
+              "answer": "Monday: Ben; Tuesday: Carol; Wednesday: Alice. This is the unique assignment — Ben works Monday, Carol works Tuesday (the day immediately after Ben), and Alice works Wednesday (satisfying that Alice does not work Monday).",
+              "traceTokens": 555,
+              "elapsedSec": 231,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 85,
+              "trace": 68,
+              "composite": 0.7145
+            },
+            {
+              "answer": "Monday — Ben; Tuesday — Carol; Wednesday — Alice. This is the unique assignment: Ben and Carol must occupy consecutive days with Ben first (Mon–Tue or Tue–Wed); the Tue–Wed option would force Alice onto Monday, which is disallowed, leaving Ben on Monday, Carol on Tuesday, and Alice on Wednesday.",
+              "traceTokens": 499,
+              "elapsedSec": 60,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 96,
+              "trace": 94,
+              "composite": 0.8858634493078937
+            },
+            {
+              "answer": "Ben works Monday, Carol works Tuesday, and Alice works Wednesday. This is the unique assignment: Carol (Tuesday) immediately follows Ben (Monday), and Alice is on Wednesday rather than Monday. The alternative pairing (Ben Tuesday, Carol Wednesday) would force Alice onto Monday, which is disallowed.",
+              "traceTokens": 541,
+              "elapsedSec": 91,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 94,
+              "trace": 90,
+              "composite": 0.8427469628054424
+            }
+          ]
+        },
+        "trial-flaw": {
+          "baseComposite": [
+            0.8582211690363348,
+            0.8633389830508474,
+            0.8481770958845423
+          ],
+          "aotComposite": [
+            0.8265961790773021,
+            0.844,
+            0.9211708838728679
+          ],
+          "baseMean": 0.8565790826572415,
+          "aotMean": 0.8639223543167233,
+          "margin": 0.007343271659481787,
+          "samples": [
+            {
+              "traceTokens": 1532,
+              "elapsedSec": 54,
+              "atomCount": 0,
+              "aotUsed": false,
+              "answer": "Most important question: Was treatment assigned by proper randomization with concealed allocation (preserved by intention-to-treat analysis), so the Drug X and control groups were exchangeable rather than differing systematically in ways that affect mortality?\n\nJustification: \"Reduces mortality\" is a causal claim, so acceptance requires the difference be attributable to the drug, not to pre-existing group differences. Randomization with concealed allocation is the only design feature making the groups comparable across both measured AND unmeasured confounders. Without it, p=0.04 is fully compatible with the drug doing nothing (e.g., healthier patients preferentially getting X — confounding by indication). It is the necessary precondition separating causation from association.\n\nWhy it outranks rivals: (1) vs pre-specified endpoint/multiplicity — the borderline p=0.04 in a press release hints at a cherry-picked secondary/subgroup outcome, but this only concerns whether the signal is real; even an honest non-chance association in a non-randomized comparison cannot establish causation, so confounding is the deeper threat. (2) vs baseline balance — only a proxy for measured confounders; randomization handles the unmeasured ones. (3) vs blinding and ITT/dropout — relevant only after randomization creates a fair comparison; second-order. (4) vs power/fragility and generalizability — affect precision and scope, not causation.\n\nDecision rule: if randomized, concealed, ITT, mortality pre-specified, then p=0.04 is meaningful (still weigh fragility/replication). If randomization is absent, subvertible, or broken by differential dropout, reject the causal claim regardless of p-value. Resolve next: confirm mortality was the pre-specified primary endpoint.</answer>\n</invoke>\n",
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 86,
+              "trace": 82,
+              "composite": 0.8582211690363348
+            },
+            {
+              "answer": "The single most important question is: Was Drug X assigned by randomization with concealed allocation, so that the treatment and control groups were comparable at baseline?\n\nWhy it outranks the others:\n\nThe p=0.04 already speaks to the only threat it can address — chance. It is the probability of seeing a mortality difference this large if the drug truly had no effect. So the role of chance is (partially) handled and is not the binding issue.\n\nWhat a p-value can never resolve is confounding. If the two groups differed systematically before treatment — e.g., the control arm was sicker, older, or had more comorbidity — then lower mortality in the Drug X arm reflects who was in each group, not what the drug did. Randomization with concealed allocation is the one design feature that makes the groups exchangeable and thereby licenses a causal reading rather than a mere association. It is a necessary precondition for any causal claim.\n\nIt dominates the strongest rival question — was mortality the pre-specified primary endpoint or cherry-picked from many outcomes/subgroups (multiplicity/outcome-switching)? That question only governs whether the reported p-value is trustworthy. But even a perfectly pre-specified, trustworthy p-value in a non-randomized study still cannot support causation, because confounding survives untouched. It likewise dominates questions about statistical power, blinding, and intention-to-treat analysis, because those merely refine an estimate that randomization has already made causally interpretable — they presuppose that a valid, comparison-worthy trial exists.\n\nIn short: all the other methodological checks are conditional on randomization having occurred; randomization is the prerequisite they depend on. Without confirmed randomized, concealed allocation, the causal claim \"Drug X reduces mortality\" is unsupportable regardless of how small the p-value is.",
+              "traceTokens": 1265,
+              "elapsedSec": 227,
+              "atomCount": 10,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 84,
+              "trace": 85,
+              "composite": 0.8265961790773021
+            },
+            {
+              "answer": "The single most important question: Was treatment allocation randomised, with concealed allocation — i.e. were patients assigned to Drug X versus control at random, and the groups then analysed by intention-to-treat?\n\nWhy this outranks every other candidate: The press release makes a causal claim (\"Drug X reduces mortality\") from an observed group difference (\"the X group had lower mortality\"). Turning that association into causation requires that the two arms be comparable in everything except the drug. Randomisation with concealed allocation is the only design feature that makes the arms exchangeable in expectation across BOTH measured and unmeasured confounders — it is the precondition for attributing the lower mortality to the drug rather than to who ended up in each arm (e.g. healthier or lower-risk patients being channelled toward Drug X). Without it, p=0.04 documents a real association but says nothing about causation, and no downstream feature can repair that.\n\nEvery rival methodological concern only refines the trustworthiness of an already-randomised comparison, so none can outrank it:\n- Whether mortality was the pre-specified primary endpoint or cherry-picked from many outcomes/subgroups (multiplicity / p-hacking — the near-0.05 p-value is suggestive) — this questions whether the p-value is honest, but presupposes a valid causal comparison.\n- Blinding, adequate statistical power, and differential attrition / loss to follow-up — these protect a causal design from bias; they do not create causal validity.\n- Baseline balance and external validity — relevant, but a non-randomised comparison remains confounded no matter how these read.\n\nA flawless single pre-specified, blinded, well-powered mortality endpoint is still non-causal if allocation was not random. Because randomisation is logically prior to and necessary for all the other questions to matter, it is the one to resolve first — do not accept \"Drug X reduces mortality\" until it is confirmed.",
+              "traceTokens": 1027,
+              "elapsedSec": 290,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 86,
+              "trace": 86,
+              "composite": 0.844
+            },
+            {
+              "answer": "The single most important question to resolve: Was allocation to Drug X versus control genuinely randomized, with concealed allocation (i.e. is this actually a randomized controlled trial, analyzed by intention-to-treat)?\n\nWhy this outranks every other methodological concern:\n\nA causal claim requires two independent things: (a) that the comparison between groups is unbiased/unconfounded, and (b) that the observed difference is unlikely to be chance. The reported p=0.04 addresses ONLY (b) — it quantifies chance, not bias. So the binding, unresolved uncertainty is (a), and randomization is the only design feature that secures it.\n\nRandomization is what makes the treatment and control groups exchangeable in expectation, breaking any link between who received the drug and their underlying prognosis. Without it, the two groups may differ systematically at baseline — e.g. confounding by indication, where healthier (or sicker) patients were preferentially given the drug — and the entire mortality gap, p-value included, can be non-causal. Critically, this kind of systematic bias is unfixable after the fact: no p-value, confidence interval, or statistical adjustment can recover a causal effect from an unknown or unmeasured confounding structure. A significant result from a confounded comparison is simply a precise estimate of a biased quantity.\n\nIt outranks the rivals because it is logically prior to all of them. The next-best question — whether mortality was the pre-specified primary endpoint or a cherry-picked/subgroup result (a borderline p=0.04 is the classic fingerprint of multiplicity/p-hacking) — plus blinding, baseline balance, attrition/ITT handling, power and fragility, and selective reporting, all presuppose that you already have an unconfounded comparison. Each of those concerns can only degrade or add noise to an already-valid randomized signal; none of them, by itself, abolishes causation. But if the study is not randomized, the causal claim collapses no matter how flawless everything else is — and resolving those refinements becomes moot. Randomization is therefore the necessary precondition that must be settled first: establish it, and the other questions become the sensible follow-ups; fail it, and 'Drug X reduces mortality' cannot be accepted regardless of the p-value.",
+              "traceTokens": 1139,
+              "elapsedSec": 85,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 88,
+              "trace": 88,
+              "composite": 0.9211708838728679
+            },
+            {
+              "answer": "The single most important question to resolve first is: \"Were patients allocated to Drug X versus control by properly randomized, allocation-concealment-protected assignment (making the two groups comparable/exchangeable), and analyzed by intention-to-treat?\"\n\nWhy this is the decisive question and outranks all others:\n\n1. The claim is causal (\"reduces mortality\"), but the evidence offered — a between-group difference plus p=0.04 — establishes at most an ASSOCIATION unlikely under the null. Crossing from association to causation requires that the groups differ only in the treatment, i.e., exchangeability. Concealed randomization is the only design feature that delivers exchangeability over UNMEASURED as well as measured confounders. It is therefore a necessary condition; every other methodological safeguard presupposes it.\n\n2. It targets BIAS, which dominates CHANCE for a causal verdict. Confounding (e.g., confounding by indication, with healthier or sicker patients preferentially receiving the drug) can produce a large, real, reproducible mortality gap that has nothing to do with the drug — a systematic error that no p-value, sample size, or replication can cure. A p-value only quantifies improbability-under-the-null; it says nothing about whether the compared groups were comparable.\n\n3. It outranks the closest competitor — multiplicity/pre-specification (suspicious given the marginal p=0.04). The asymmetry is decisive: multiplicity only inflates the false-positive rate, so under valid randomization even a cherry-picked mortality signal is still an UNBIASED estimate of a causal effect (just with overstated significance). Under broken/absent randomization, the association is biased regardless of how it was selected. Bias beats chance for a causal claim, so randomization outranks pre-specification (which is the natural #2 question).\n\n4. All remaining concerns — blinding, intention-to-treat integrity, differential dropout, absolute effect size and confidence-interval width/fragility, and external validity — either operate on top of the assignment mechanism or only become the binding constraint once comparable groups are established. They calibrate confidence within a valid randomized comparison; they cannot rescue a confounded one.\n\nThe trap in the press release is the word \"trial,\" which tempts acceptance of randomization and a jump straight to the p-value. Because \"control group\" and \"trial\" also describe observational designs, comparability must be verified, not assumed. Until randomization with concealed allocation is confirmed, \"Drug X reduces mortality\" should not be accepted.",
+              "traceTokens": 1660,
+              "elapsedSec": 65,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 92,
+              "trace": 92,
+              "composite": 0.8633389830508474
+            },
+            {
+              "answer": "The single most important methodological question is: Were patients RANDOMLY assigned to Drug X versus control with concealed allocation (yielding baseline-comparable, exchangeable groups analyzed by intention-to-treat)?\n\nWhy this outranks all others: \"Drug X reduces mortality\" is a CAUSAL claim, and causal inference from a two-group comparison requires that the only systematic difference between the arms be the intervention itself. Randomization with allocation concealment is the sole design feature that delivers this. It is logically upstream of every other concern:\n\n- If allocation was NOT randomized (or concealment failed), the groups can differ in baseline risk of death — sicker or healthier patients preferentially channeled to one arm (confounding by indication). Then the lower mortality in the X group is explained by non-exchangeable groups, and p=0.04 merely certifies that a difference exists, not that the drug caused it. Crucially, the p-value is blind to confounding: it quantifies random sampling error under the assumption the groups are otherwise comparable, so a \"significant\" result from a confounded comparison is fully consistent with zero or even harmful drug effect, and no statistical adjustment reliably repairs it (unmeasured confounders remain).\n\nThe other candidate questions only weaken or qualify a comparison that randomization has already made valid:\n- Pre-specification / multiplicity (was all-cause mortality the pre-registered PRIMARY endpoint, or a cherry-picked secondary/subgroup outcome — a real worry given a borderline p=0.04 in a manufacturer press release) attacks whether the effect is real vs chance, but presupposes a causal design; in a proper RCT the estimate is at least unbiased. Multiplicity degrades reliability; confounding destroys causal interpretation.\n- Fragility/power: a robust result on a confounded comparison is still non-causal.\n- Blinding: chiefly protects soft endpoints; second-order for objective all-cause mortality.\n- Attrition / ITT: important, but a threat to MAINTAINING a randomized comparison — downstream of randomization.\n- All-cause vs disease-specific mortality: interpretive, but presupposes an unbiased comparison.\n\nThus randomization with concealed allocation is the necessary precondition: if it fails, the causal claim collapses regardless of every other detail; only once it holds do the runner-up questions (pre-specified primary endpoint/multiplicity, then power/fragility, blinding, ITT, effect size) come into play. (Caveat: had we already been assured this was a properly randomized RCT, the top question would shift to pre-specification/multiplicity — but the press release gives no such assurance.)",
+              "traceTokens": 1590,
+              "elapsedSec": 108,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 90,
+              "trace": 90,
+              "composite": 0.8481770958845423
+            }
+          ]
+        },
+        "acid-base-mixed": {
+          "baseComposite": [
+            0.9239035219183215,
+            0.9814999999999999
+          ],
+          "aotComposite": [
+            0.779,
+            0.8258638066691645,
+            0.9047521543649306
+          ],
+          "baseMean": 0.9527017609591607,
+          "aotMean": 0.8365386536780317,
+          "margin": -0.116163107281129,
+          "samples": [
+            {
+              "answer": "(1) Primary disorder: high anion gap metabolic acidosis (pH 7.28 = acidemia; HCO3- 13 low and PaCO2 28 low, so the primary driver is metabolic).\n\n(2) Serum anion gap = Na+ - (Cl- + HCO3-) = 140 - (95 + 13) = 140 - 108 = 32 mmol/L (elevated; normal ~12).\n\n(3) Winter's formula: expected PaCO2 = 1.5 x [HCO3-] + 8 = 1.5 x 13 + 8 = 19.5 + 8 = 27.5, giving a range of 25.5-29.5 mmHg. Measured PaCO2 of 28 mmHg falls within this range, so respiratory compensation is appropriate/adequate (no separate respiratory disorder).\n\n(4) Delta ratio = (AG - 12) / (24 - HCO3-) = (32 - 12) / (24 - 13) = 20 / 11 = 1.82. A ratio between 1 and 2 indicates a pure/uncomplicated high anion gap metabolic acidosis: there is no concurrent normal-anion-gap (hyperchloraemic) acidosis (which would push the ratio below 1) and no concurrent metabolic alkalosis or pre-existing elevated bicarbonate (which would push it above 2).\n\nSummary: pure high anion gap metabolic acidosis with appropriate respiratory compensation and no coexisting metabolic disorder.",
+              "traceTokens": 1014,
+              "elapsedSec": 185,
+              "atomCount": 10,
+              "aotUsed": true,
+              "taskId": "acid-base-mixed",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 94,
+              "trace": 96,
+              "composite": 0.779
+            },
+            {
+              "traceTokens": 860,
+              "elapsedSec": 33,
+              "atomCount": 0,
+              "aotUsed": false,
+              "answer": "1. Primary disorder: metabolic acidosis. pH 7.28 indicates acidemia; HCO3- is low at 13, the acidifying process driving pH down, so it is primary; the low PaCO2 is compensatory, not a primary respiratory alkalosis. 2. Serum anion gap = Na+ minus (Cl- plus HCO3-) = 140 minus (95 plus 13) = 32 mmol/L, markedly elevated (reference 12); albumin normal so no correction needed; high anion gap metabolic acidosis. 3. Winter's formula: expected PaCO2 = 1.5 times 13 plus 8 = 27.5 mmHg (range 25.5 to 29.5); measured 28 lies within range, so respiratory compensation is appropriate/adequate with no separate superimposed respiratory disorder. 4. Delta ratio = (AG minus 12) over (24 minus HCO3-) = (32 minus 12) over (24 minus 13) = 20/11 = 1.82; a value in the 1 to 2 range indicates a pure high anion gap metabolic acidosis, the rise in anion gap accounting for essentially all the fall in bicarbonate; no concurrent normal-anion-gap acidosis and no concurrent metabolic alkalosis. Overall: a pure high anion gap metabolic acidosis with appropriate respiratory compensation.</answer>\n</invoke>\n",
+              "taskId": "acid-base-mixed",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 83,
+              "trace": 86,
+              "composite": 0.9239035219183215
+            },
+            {
+              "answer": "1. Primary disorder: High anion gap metabolic acidosis. pH 7.28 = acidemia; HCO3- 13 (low) drives the acidemia and moves in the same direction as pH, so the metabolic component is primary. The low PaCO2 (28) is compensatory.\n\n2. Serum anion gap = Na+ - (Cl- + HCO3-) = 140 - (95 + 13) = 32 mmol/L. Markedly elevated (normal ~12); albumin normal so no correction needed.\n\n3. Respiratory compensation (Winter's): expected PaCO2 = 1.5 x 13 + 8 = 27.5 mmHg (range 25.5-29.5). Measured PaCO2 = 28 mmHg falls within range, so respiratory compensation is APPROPRIATE/adequate — no superimposed primary respiratory disorder.\n\n4. Delta ratio = ΔAG/ΔHCO3- = (32 - 12)/(24 - 13) = 20/11 = 1.82. This lies in the 1-2 range, indicating a PURE (uncomplicated) high anion gap metabolic acidosis: the rise in unmeasured anions accounts for the fall in bicarbonate, with no concurrent normal anion gap acidosis (ratio would be <1) and no concurrent metabolic alkalosis or pre-existing raised HCO3- (ratio would be >2).\n\nOverall: pure high anion gap metabolic acidosis with appropriate respiratory compensation.",
+              "traceTokens": 844,
+              "elapsedSec": 28,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "acid-base-mixed",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 95,
+              "trace": 96,
+              "composite": 0.9814999999999999
+            },
+            {
+              "answer": "1) Primary disorder: pH 7.28 is acidemic with a low HCO3- (13) — this identifies a primary metabolic acidosis. Combined with the anion gap below, it is a high anion gap metabolic acidosis (HAGMA).\n\n2) Serum anion gap = Na+ - (Cl- + HCO3-) = 140 - (95 + 13) = 140 - 108 = 32 mmol/L (markedly elevated; normal ~12).\n\n3) Respiratory compensation (Winter's formula): expected PaCO2 = 1.5 x [HCO3-] + 8 = 1.5 x 13 + 8 = 19.5 + 8 = 27.5 mmHg, range 25.5-29.5 mmHg. Measured PaCO2 = 28 mmHg lies within this range, so respiratory compensation is appropriate/adequate — there is no separate primary respiratory disorder.\n\n4) Delta ratio = deltaAG / deltaHCO3- = (32 - 12) / (24 - 13) = 20 / 11 = 1.8. A ratio between 1 and 2 indicates a pure high anion gap metabolic acidosis. Therefore there is no concurrent metabolic disorder: a ratio <1 would have suggested a coexisting normal-anion-gap (hyperchloraemic) acidosis, and >2 a coexisting metabolic alkalosis or pre-existing respiratory acidosis — neither applies here.\n\nOverall: pure high anion gap metabolic acidosis (AG 32) with appropriate respiratory compensation and no additional acid-base disturbance.",
+              "traceTokens": 940,
+              "elapsedSec": 157,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "acid-base-mixed",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 90,
+              "trace": 93,
+              "composite": 0.8258638066691645
+            },
+            {
+              "answer": "(1) Primary disorder: high anion gap metabolic acidosis. The pH of 7.28 (<7.35) is acidemia; the low HCO3- of 13 mmol/L is the primary abnormality driving it (the low PaCO2 of 28 would raise pH, so it is not the primary cause).\n\n(2) Serum anion gap = Na+ - (Cl- + HCO3-) = 140 - (95 + 13) = 140 - 108 = 32 mmol/L. This is elevated (reference ~12); albumin is normal so no correction is needed. Confirms a high anion gap metabolic acidosis.\n\n(3) Respiratory compensation via Winter's formula: expected PaCO2 = 1.5 x 13 + 8 = 19.5 + 8 = 27.5 mmHg, i.e. range 25.5-29.5 mmHg. Measured PaCO2 is 28 mmHg, which falls within this range. Therefore respiratory compensation is appropriate (adequate) and there is no separate/additional respiratory acid-base disorder.\n\n(4) Delta ratio = deltaAG / deltaHCO3- = (32 - 12) / (24 - 13) = 20 / 11 = 1.82. A delta ratio in the 1-2 range indicates a pure, uncomplicated high anion gap metabolic acidosis. It is not <1 (which would indicate a coexisting normal anion gap/hyperchloremic acidosis) and not >2 (which would indicate a coexisting metabolic alkalosis or pre-existing chronically elevated HCO3-). Hence there is no concurrent metabolic disorder.\n\nSummary: A pure high anion gap metabolic acidosis (AG 32) with appropriate respiratory compensation and no additional metabolic derangement.",
+              "traceTokens": 916,
+              "elapsedSec": 82,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "acid-base-mixed",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 95,
+              "trace": 96,
+              "composite": 0.9047521543649306
+            }
+          ]
+        },
+        "noradrenaline-rate": {
+          "baseComposite": [
+            0.9514319331497727,
+            0.9829690721649484,
+            0.9517391304347825
+          ],
+          "aotComposite": [
+            0.7882896202855862,
+            0.8067686495485689,
+            0.772
+          ],
+          "baseMean": 0.9620467119165013,
+          "aotMean": 0.7890194232780517,
+          "margin": -0.17302728863844952,
+          "samples": [
+            {
+              "answer": "Required infusion rate = 6 mL/hour.\n\nUnit conversions:\n- Dose: 0.1 microgram/kg/min x 80 kg = 8 microgram/min\n- Per hour: 8 microgram/min x 60 min/hr = 480 microgram/hr = 0.48 mg/hr\n- Bag concentration: 4 mg / 50 mL = 0.08 mg/mL\n- Rate: (0.48 mg/hr) / (0.08 mg/mL) = 6 mL/hr",
+              "traceTokens": 507,
+              "elapsedSec": 95,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "noradrenaline-rate",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 90,
+              "trace": 88,
+              "composite": 0.7882896202855862
+            },
+            {
+              "answer": "Infusion rate = 6 mL/hour.\n\nWorking with explicit unit conversions:\n- Dose: 0.1 microgram/kg/min x 80 kg = 8 microgram/min\n- Concentration: 4 mg = 4000 microgram; 4000 microgram / 50 mL = 80 microgram/mL\n- Volume rate: 8 microgram/min ÷ 80 microgram/mL = 0.1 mL/min\n- Per hour: 0.1 mL/min x 60 min/hour = 6 mL/hour",
+              "traceTokens": 255,
+              "elapsedSec": 18,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "noradrenaline-rate",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 91,
+              "trace": 90,
+              "composite": 0.9514319331497727
+            },
+            {
+              "answer": "Infusion rate = 6 mL/hour.\n\nUnit conversions:\n1. Dose per minute: 0.1 microgram/kg/min x 80 kg = 8 microgram/min.\n2. Bag concentration: 4 mg in 50 mL = 4000 microgram / 50 mL = 80 microgram/mL.\n3. Volume rate: (8 microgram/min) / (80 microgram/mL) = 0.1 mL/min.\n4. Convert to hourly: 0.1 mL/min x 60 min/hour = 6 mL/hour.",
+              "traceTokens": 463,
+              "elapsedSec": 101,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "noradrenaline-rate",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 92,
+              "trace": 92,
+              "composite": 0.8067686495485689
+            },
+            {
+              "answer": "Required infusion rate = 6 mL/hour.\n\nUnit conversions:\n1. Dose per minute: 0.1 microgram/kg/min x 80 kg = 8 microgram/min.\n2. Bag concentration: 4 mg / 50 mL = 4000 microgram / 50 mL = 80 microgram/mL.\n3. Volume per minute: (8 microgram/min) / (80 microgram/mL) = 0.1 mL/min.\n4. Convert to per hour: 0.1 mL/min x 60 min/hour = 6 mL/hour.",
+              "traceTokens": 548,
+              "elapsedSec": 113,
+              "atomCount": 11,
+              "aotUsed": true,
+              "taskId": "noradrenaline-rate",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 93,
+              "trace": 93,
+              "composite": 0.772
+            },
+            {
+              "answer": "Required infusion rate = 6 mL/hour.\n\nUnit conversions:\n- Dose: 0.1 microgram/kg/min x 80 kg = 8 microgram/min\n- Per hour: 8 microgram/min x 60 min/hour = 480 microgram/hour = 0.48 mg/hour\n- Bag concentration: 4 mg / 50 mL = 0.08 mg/mL (= 80 microgram/mL)\n- Rate: 0.48 mg/hour ÷ 0.08 mg/mL = 6 mL/hour (check: 480 microgram/hour ÷ 80 microgram/mL = 6 mL/hour)",
+              "traceTokens": 226,
+              "elapsedSec": 17,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "noradrenaline-rate",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 96,
+              "trace": 96,
+              "composite": 0.9829690721649484
+            },
+            {
+              "answer": "Infusion rate = 6 mL/hour.\n\nWorking:\n- Dose per minute: 0.1 microgram/kg/min x 80 kg = 8 microgram/min\n- Dose per hour: 8 microgram/min x 60 min/hour = 480 microgram/hour = 0.48 mg/hour\n- Bag concentration: 4 mg / 50 mL = 0.08 mg/mL (= 80 microgram/mL)\n- Rate: 0.48 mg/hour / 0.08 mg/mL = 6 mL/hour (cross-check: 480 microgram/hour / 80 microgram/mL = 6 mL/hour)",
+              "traceTokens": 317,
+              "elapsedSec": 16,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "noradrenaline-rate",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 95,
+              "trace": 95,
+              "composite": 0.9517391304347825
+            }
+          ]
+        },
+        "room-assign-4": {
+          "baseComposite": [
+            0.8234287531806616,
+            0.8292567386897831,
+            0.845457627118644
+          ],
+          "aotComposite": [
+            0.6308078880407124,
+            0.652507547332557,
+            0.6988474576271186
+          ],
+          "baseMean": 0.8327143729963629,
+          "aotMean": 0.6607209643334627,
+          "margin": -0.17199340866290014,
+          "samples": [
+            {
+              "answer": "Room 1 = R, Room 2 = Q, Room 3 = P, Room 4 = S.",
+              "traceTokens": 271,
+              "elapsedSec": 14,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "room-assign-4",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 82,
+              "trace": 15,
+              "composite": 0.8234287531806616
+            },
+            {
+              "answer": "Room 1: R, Room 2: Q, Room 3: P, Room 4: S. (P=3, Q=2, R=1, S=4)",
+              "traceTokens": 322,
+              "elapsedSec": 16,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "room-assign-4",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 86,
+              "trace": 22,
+              "composite": 0.8292567386897831
+            },
+            {
+              "answer": "P is in room 3, Q is in room 2, R is in room 1, and S is in room 4.",
+              "traceTokens": 635,
+              "elapsedSec": 132,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "room-assign-4",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 82,
+              "trace": 15,
+              "composite": 0.6308078880407124
+            },
+            {
+              "answer": "P is in room 3, Q is in room 2, R is in room 1, and S is in room 4.",
+              "traceTokens": 613,
+              "elapsedSec": 113,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "room-assign-4",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 82,
+              "trace": 15,
+              "composite": 0.652507547332557
+            },
+            {
+              "answer": "Room 1 = R, Room 2 = Q, Room 3 = P, Room 4 = S. (P=3, Q=2, R=1, S=4)",
+              "traceTokens": 255,
+              "elapsedSec": 17,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "room-assign-4",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 86,
+              "trace": 22,
+              "composite": 0.845457627118644
+            },
+            {
+              "answer": "Room 1 = R, Room 2 = Q, Room 3 = P, Room 4 = S. (P=3, Q=2, R=1, S=4.)",
+              "traceTokens": 648,
+              "elapsedSec": 72,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "room-assign-4",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 86,
+              "trace": 22,
+              "composite": 0.6988474576271186
+            }
+          ]
+        }
+      },
+      "frozenBaseline": {
+        "aa-gradient": [
+          0.8020543024227236,
+          0.984,
+          0.9249578111946533
+        ],
+        "shift-rota": [
+          0.7729843463878552,
+          0.8150215311004785,
+          0.7879279835390947
+        ],
+        "trial-flaw": [
+          0.8582211690363348,
+          0.8633389830508474,
+          0.8481770958845423
+        ],
+        "acid-base-mixed": [
+          0.9239035219183215,
+          0.9814999999999999
+        ],
+        "noradrenaline-rate": [
+          0.9514319331497727,
+          0.9829690721649484,
+          0.9517391304347825
+        ],
+        "room-assign-4": [
+          0.8234287531806616,
+          0.8292567386897831,
+          0.845457627118644
+        ]
+      },
+      "overall": {
+        "baseMean": 0.879198235251379,
+        "aotMean": 0.7955394910852028,
+        "margin": -0.08365874416617614,
+        "noiseFloor": 0.025865975569060944,
+        "clears": false
+      }
+    },
+    {
+      "round": 1,
+      "hypothesis": "H4-lean-trace",
+      "trialStrategy": [
+        "Add a premise atom stating the task and its givens (fold any key intermediate results into this premise rather than separate reasoning atoms).",
+        "Add a hypothesis atom for the candidate answer, depending directly on the premise (drop the per-step intermediate reasoning atoms).",
+        "Add a verification atom (--supports/--refutes) checking the hypothesis against the constraints/arithmetic.",
+        "Add a conclusion atom; run `aot analyze` and resolve any contradiction/weakest-link warning before finalising.",
+        "Read the final answer off the conclusion atom."
+      ],
+      "perTask": {
+        "aa-gradient": {
+          "aotComposite": [
+            0.7848529411764705,
+            0.8092058823529412,
+            0.871264705882353
+          ],
+          "aotMean": 0.8217745098039216,
+          "baseMean": 0.9036707045391257,
+          "margin": -0.08189619473520404
+        },
+        "shift-rota": {
+          "aotComposite": [
+            0.6646812080536912,
+            0.8307999215549552,
+            0.7902922077922078
+          ],
+          "aotMean": 0.7619244458002847,
+          "baseMean": 0.7919779536758095,
+          "margin": -0.030053507875524743
+        },
+        "trial-flaw": {
+          "aotComposite": [
+            0.8308794466403163,
+            0.8849705882352941,
+            0.8241920096101681
+          ],
+          "aotMean": 0.8466806814952595,
+          "baseMean": 0.8565790826572415,
+          "margin": -0.009898401161981929
+        },
+        "acid-base-mixed": {
+          "aotComposite": [
+            0.8724999999999999,
+            0.8767343297974928,
+            0.8276576663452265
+          ],
+          "aotMean": 0.8589639987142398,
+          "baseMean": 0.9527017609591607,
+          "margin": -0.09373776224492092
+        },
+        "noradrenaline-rate": {
+          "aotComposite": [
+            0.8036936157214133,
+            0.775,
+            0.8391230017309848
+          ],
+          "aotMean": 0.8059388724841327,
+          "baseMean": 0.9620467119165013,
+          "margin": -0.1561078394323686
+        },
+        "room-assign-4": {
+          "aotComposite": [
+            0.7122671755725191,
+            0.7330297613295971,
+            0.6947088607594937
+          ],
+          "aotMean": 0.7133352658872033,
+          "baseMean": 0.8327143729963629,
+          "margin": -0.11937910710915955
+        }
+      },
+      "margin": -0.07776193955387212,
+      "noiseFloor": 0.02331175111261952,
+      "improved": false,
+      "kept": false,
+      "analysis": "H4-lean-trace moved the token-efficiency margin the right way (+0.0059, from -0.0837 to -0.0778) but the gain is well under the 0.0233 noise floor, so it does not clear and is not kept. A blunt static prune of intermediate atoms is near its ceiling; the residual ~0.078 deficit is unlikely to be closed on the tokenEff axis alone by more trimming. Ranking prioritizes H3-analyze-gate because a conditional analysis gate attacks the same token deficit structurally (skip work rather than shrink traces) and composes with lean-trace, then H2-enumerate-refute as a correctness lever with bounded token cost, and H1-verify-each-step last since per-step verification adds the most tokens and directly fights the failing axis."
+    },
+    {
+      "round": 2,
+      "hypothesis": "H3-analyze-gate",
+      "trialStrategy": [
+        "Add a premise atom stating the task and its givens.",
+        "Add one reasoning atom per dependent step (each depends on the prior), making intermediate results explicit.",
+        "Add a hypothesis atom for the candidate answer, depending on the reasoning chain.",
+        "Add a verification atom (--supports/--refutes) checking the hypothesis against the constraints/arithmetic.",
+        "Add a conclusion atom.",
+        "Run `aot analyze` as a finalisation gate: only finalise once zero contradictions and zero weakest-link warnings remain; if any appear, revise the offending atoms and re-run until clean.",
+        "Read the final answer off the conclusion atom."
+      ],
+      "perTask": {
+        "aa-gradient": {
+          "aotComposite": [
+            0.8688313061872024,
+            0.8151753040719195,
+            0.7799999999999999
+          ],
+          "aotMean": 0.8213355367530406,
+          "baseMean": 0.9036707045391257,
+          "margin": -0.08233516778608507
+        },
+        "shift-rota": {
+          "aotComposite": [
+            0.8060247806304842,
+            0.8278901527461814,
+            0.7825
+          ],
+          "aotMean": 0.8054716444588884,
+          "baseMean": 0.7919779536758095,
+          "margin": 0.013493690783078938
+        },
+        "trial-flaw": {
+          "aotComposite": [
+            0.86,
+            0.9116449490185511,
+            0.9228259443920406
+          ],
+          "aotMean": 0.8981569644701972,
+          "baseMean": 0.8565790826572415,
+          "margin": 0.04157788181295574
+        },
+        "acid-base-mixed": {
+          "aotComposite": [
+            0.8138636363636363,
+            0.9393098591549296,
+            0.7821126760563379
+          ],
+          "aotMean": 0.845095390524968,
+          "baseMean": 0.9527017609591607,
+          "margin": -0.10760637043419274
+        },
+        "noradrenaline-rate": {
+          "aotComposite": [
+            0.8384560723514212,
+            0.7891847545219639,
+            0.7815
+          ],
+          "aotMean": 0.8030469422911284,
+          "baseMean": 0.9620467119165013,
+          "margin": -0.15899976962537288
+        },
+        "room-assign-4": {
+          "aotComposite": [
+            0.6797246963562753,
+            0.7066003470213996,
+            0.636
+          ],
+          "aotMean": 0.6741083477925583,
+          "baseMean": 0.8327143729963629,
+          "margin": -0.1586060252038045
+        }
+      },
+      "margin": -0.07132909753624883,
+      "noiseFloor": 0.025816361593348155,
+      "improved": false,
+      "kept": false,
+      "analysis": "H3 moved the margin from -0.0837 to -0.0713 (+0.0124), a directionally positive but sub-noise-floor (0.0258) gain that leaves the margin negative, so cleared=false and keep=false. The signal indicates the \"surface and resolve contradictions\" family helps, so H2-enumerate-refute — the active generalization of that same mechanism — is ranked highest leverage, ahead of the heavier, more incremental per-step verification H1. The evidence also implies the analyze gate's cost/benefit is poor as a standalone pass, motivating an inline finalize-time self-check as the source-level improvement."
+    }
+  ],
+  "roundSummaries": [
+    {
+      "round": 0,
+      "hypothesis": "S0-baseline-aot",
+      "margin": -0.08365874416617614,
+      "noiseFloor": 0.025865975569060944,
+      "kept": true
+    },
+    {
+      "round": 1,
+      "hypothesis": "H4-lean-trace",
+      "margin": -0.07776193955387212,
+      "noiseFloor": 0.02331175111261952,
+      "kept": false,
+      "analysis": "H4-lean-trace moved the token-efficiency margin the right way (+0.0059, from -0.0837 to -0.0778) but the gain is well under the 0.0233 noise floor, so it does not clear and is not kept. A blunt static prune of intermediate atoms is near its ceiling; the residual ~0.078 deficit is unlikely to be closed on the tokenEff axis alone by more trimming. Ranking prioritizes H3-analyze-gate because a conditional analysis gate attacks the same token deficit structurally (skip work rather than shrink traces) and composes with lean-trace, then H2-enumerate-refute as a correctness lever with bounded token cost, and H1-verify-each-step last since per-step verification adds the most tokens and directly fights the failing axis."
+    },
+    {
+      "round": 2,
+      "hypothesis": "H3-analyze-gate",
+      "margin": -0.07132909753624883,
+      "noiseFloor": 0.025816361593348155,
+      "kept": false,
+      "analysis": "H3 moved the margin from -0.0837 to -0.0713 (+0.0124), a directionally positive but sub-noise-floor (0.0258) gain that leaves the margin negative, so cleared=false and keep=false. The signal indicates the \"surface and resolve contradictions\" family helps, so H2-enumerate-refute — the active generalization of that same mechanism — is ranked highest leverage, ahead of the heavier, more incremental per-step verification H1. The evidence also implies the analyze gate's cost/benefit is poor as a standalone pass, motivating an inline finalize-time self-check as the source-level improvement."
+    }
+  ],
+  "round0": {
+    "baseMean": 0.879198235251379,
+    "aotMean": 0.7955394910852028,
+    "margin": -0.08365874416617614,
+    "noiseFloor": 0.025865975569060944,
+    "clears": false
+  },
+  "finalMargin": -0.08365874416617614,
+  "finalStrategy": [
+    "Add a premise atom stating the task and its givens.",
+    "Add one reasoning atom per dependent step (each depends on the prior), making intermediate results explicit.",
+    "Add a hypothesis atom for the candidate answer, depending on the reasoning chain.",
+    "Add a verification atom (--supports/--refutes) checking the hypothesis against the constraints/arithmetic.",
+    "Add a conclusion atom; run `aot analyze` and resolve any contradiction/weakest-link warning before finalising.",
+    "Read the final answer off the conclusion atom."
+  ],
+  "backlog": [
+    {
+      "id": "H2-enumerate-refute",
+      "hypothesis": "On logic/CSP tasks, require a hypothesis atom per candidate solution and a refutes-verification for each constraint violation — should lift correctness on shift-rota-style tasks.",
+      "axis": "correct",
+      "tested": false
+    },
+    {
+      "id": "H1-verify-each-step",
+      "hypothesis": "Force one verification atom per intermediate result (not just the final hypothesis) — should raise objective correctness on multi-step numeric tasks by catching propagation errors early.",
+      "axis": "correct",
+      "tested": false
+    },
+    {
+      "id": "H3-analyze-gate",
+      "hypothesis": "Run `aot analyze` and only finalise once zero contradictions/weakest-link warnings remain — trades tokens for trace quality + correctness.",
+      "axis": "trace",
+      "tested": true
+    },
+    {
+      "id": "H4-lean-trace",
+      "hypothesis": "Cap atoms to premise+hypothesis+verification+conclusion (drop intermediate reasoning atoms) to cut trace tokens — tests whether the token-efficiency loss to baseline can be recovered without hurting correctness.",
+      "axis": "tokenEff",
+      "tested": true
+    }
+  ],
+  "roundsRun": 3,
+  "recommendations": [
+    {
+      "round": 1,
+      "from": "H4-lean-trace",
+      "recommendation": "Make intermediate-atom emission adaptive rather than a fixed cap: gate emission of intermediate reasoning atoms on a per-item difficulty/confidence signal (emit them only when a cheap self-check fails or confidence is low), so easy items keep the lean-trace token win while hard items retain full reasoning for correctness."
+    },
+    {
+      "round": 2,
+      "from": "H3-analyze-gate",
+      "recommendation": "Fold a lightweight contradiction/weakest-link scan directly into aot's finalize step (emit-then-self-check inline) instead of gating on a separate full `analyze` pass, so the correctness signal is captured without paying for a second reasoning pass."
+    }
+  ],
+  "verdict": "aot did NOT beat freeform on this suite — honest null result"
+}
