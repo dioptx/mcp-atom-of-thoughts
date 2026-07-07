@@ -1,0 +1,517 @@
+{
+  "rounds": [
+    {
+      "round": 0,
+      "strategyId": "S0-baseline-aot",
+      "perTask": {
+        "aa-gradient": {
+          "baseComposite": [
+            0.8031348314606742,
+            0.955876404494382,
+            0.9379375
+          ],
+          "aotComposite": [
+            0.8769908707865168,
+            0.882374297752809,
+            0.821125
+          ],
+          "baseMean": 0.8989829119850188,
+          "aotMean": 0.8601633895131086,
+          "margin": -0.03881952247191023,
+          "samples": [
+            {
+              "answer": "PAO2 = 0.21 x (760 - 47) - 40/0.8 = 0.21 x 713 - 50 = 149.73 - 50 = 99.73 mmHg (~100 mmHg). A-a gradient = PAO2 - PaO2 = 99.73 - 85 = 14.73 mmHg (~15 mmHg).",
+              "traceTokens": 687,
+              "elapsedSec": 23,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 80,
+              "trace": 74,
+              "composite": 0.8031348314606742
+            },
+            {
+              "answer": "PAO2 = FiO2 × (PB − PH2O) − PaCO2/R = 0.21 × (760 − 47) − 40/0.8 = 0.21 × 713 − 50 = 149.73 − 50 ≈ 99.7 mmHg (~100 mmHg).\n\nA-a gradient = PAO2 − PaO2 = 99.73 − 85 ≈ 14.7 mmHg (~15 mmHg).",
+              "traceTokens": 367,
+              "elapsedSec": 17,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 90,
+              "trace": 88,
+              "composite": 0.955876404494382
+            },
+            {
+              "answer": "PAO2 = FiO2 × (Pb − PH2O) − PaCO2/R = 0.21 × (760 − 47) − 40/0.8 = 0.21 × 713 − 50 = 149.73 − 50 = 99.73 mmHg (≈100 mmHg). A-a gradient = PAO2 − PaO2 = 99.73 − 85 = 14.73 mmHg (≈15 mmHg).",
+              "traceTokens": 428,
+              "elapsedSec": 16,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "aa-gradient",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 90,
+              "trace": 88,
+              "composite": 0.9379375
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation, PAO2 = FiO2 x (Pb - PH2O) - PaCO2/R:\n- Pb - PH2O = 760 - 47 = 713 mmHg\n- FiO2 x (Pb - PH2O) = 0.21 x 713 = 149.73 mmHg\n- PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 - 50 = 99.73 mmHg (~100 mmHg)\n\nStep 2 — A-a oxygen gradient = PAO2 - PaO2:\n- 99.73 - 85 = 14.73 mmHg (~15 mmHg)\n\nFinal: PAO2 = 99.73 mmHg; A-a gradient = 14.73 mmHg.",
+              "traceTokens": 552,
+              "elapsedSec": 54,
+              "atomCount": 10,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 94,
+              "trace": 95,
+              "composite": 0.8769908707865168
+            },
+            {
+              "answer": "Step 1 — Alveolar gas equation, PAO2 = FiO2·(PB − PH2O) − PaCO2/R:\n- Inspired PO2: PIO2 = 0.21 × (760 − 47) = 0.21 × 713 = 149.73 mmHg\n- CO2 term: PaCO2/R = 40 / 0.8 = 50 mmHg\n- PAO2 = 149.73 − 50 = 99.73 mmHg (≈ 99.7 mmHg)\n\nStep 2 — A-a oxygen gradient = PAO2 − PaO2:\n- A-a = 99.73 − 85 = 14.73 mmHg (≈ 14.7 mmHg)\n\nFinal: PAO2 ≈ 99.7 mmHg; A-a gradient ≈ 14.7 mmHg.",
+              "traceTokens": 526,
+              "elapsedSec": 60,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 95,
+              "trace": 96,
+              "composite": 0.882374297752809
+            },
+            {
+              "answer": "Step 1 - Inspired PO2: PIO2 = FiO2 x (Pb - PH2O) = 0.21 x (760 - 47) = 0.21 x 713 = 149.73 mmHg.\nStep 2 - CO2 correction: PaCO2 / R = 40 / 0.8 = 50 mmHg.\nStep 3 - Alveolar gas equation: PAO2 = PIO2 - PaCO2/R = 149.73 - 50 = 99.73 mmHg (approximately 100 mmHg).\nStep 4 - A-a gradient: PAO2 - PaO2 = 99.73 - 85 = 14.73 mmHg (approximately 15 mmHg).\n\nFinal: PAO2 = 99.73 mmHg (~100 mmHg); A-a oxygen gradient = 14.73 mmHg (~15 mmHg).",
+              "traceTokens": 573,
+              "elapsedSec": 105,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "aa-gradient",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 96,
+              "trace": 97,
+              "composite": 0.821125
+            }
+          ]
+        },
+        "shift-rota": {
+          "baseComposite": [
+            0.8130000000000001,
+            0.7581519602304826,
+            0.7628361767031975
+          ],
+          "aotComposite": [
+            0.7884072421195345,
+            0.723,
+            0.88886673822167
+          ],
+          "baseMean": 0.77799604564456,
+          "aotMean": 0.8000913267804014,
+          "margin": 0.02209528113584136,
+          "samples": [
+            {
+              "answer": "Monday: Ben; Tuesday: Carol; Wednesday: Alice. This is the unique assignment.",
+              "traceTokens": 314,
+              "elapsedSec": 13,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 72,
+              "trace": 22,
+              "composite": 0.8130000000000001
+            },
+            {
+              "answer": "Monday: Ben; Tuesday: Carol; Wednesday: Alice. This is the unique assignment.",
+              "traceTokens": 453,
+              "elapsedSec": 17,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 72,
+              "trace": 22,
+              "composite": 0.7581519602304826
+            },
+            {
+              "answer": "Monday: Ben. Tuesday: Carol. Wednesday: Alice. This is the unique assignment.",
+              "traceTokens": 439,
+              "elapsedSec": 18,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "shift-rota",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 72,
+              "trace": 22,
+              "composite": 0.7628361767031975
+            },
+            {
+              "answer": "Ben works Monday, Carol works Tuesday, and Alice works Wednesday. This is the unique assignment: Carol immediately follows Ben (Monday→Tuesday), and Alice is not on Monday.",
+              "traceTokens": 499,
+              "elapsedSec": 112,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 85,
+              "trace": 70,
+              "composite": 0.7884072421195345
+            },
+            {
+              "answer": "Ben works Monday, Carol works Tuesday, and Alice works Wednesday. This is the unique assignment: Carol (Tuesday) immediately follows Ben (Monday), and Alice avoids Monday by taking Wednesday.",
+              "traceTokens": 579,
+              "elapsedSec": 180,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 86,
+              "trace": 72,
+              "composite": 0.723
+            },
+            {
+              "answer": "Ben works Monday, Carol works Tuesday, and Alice works Wednesday. This is the unique assignment: Alice avoids Monday (she is on Wednesday), and Carol (Tuesday) works the day immediately after Ben (Monday). The alternative consecutive pairing (Ben Tuesday, Carol Wednesday) is impossible because it would force Alice onto Monday.",
+              "traceTokens": 460,
+              "elapsedSec": 64,
+              "atomCount": 7,
+              "aotUsed": true,
+              "taskId": "shift-rota",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 94,
+              "trace": 93,
+              "composite": 0.88886673822167
+            }
+          ]
+        },
+        "trial-flaw": {
+          "baseComposite": [
+            0.8828209054593875,
+            0.8816430405105505,
+            0.8299684684684685
+          ],
+          "aotComposite": [
+            0.85,
+            0.9090628051486906,
+            0.8486330418301125
+          ],
+          "baseMean": 0.8648108048128021,
+          "aotMean": 0.8692319489929344,
+          "margin": 0.004421144180132286,
+          "samples": [
+            {
+              "answer": "The single most important question is: Was treatment allocation randomized, with concealed allocation, so that the Drug X and control groups were comparable at baseline?\n\nWhy this outranks every other concern:\n\nRandomized, concealed allocation is the necessary precondition for reading any group difference as caused by the drug. If patients were not randomized — for example, if clinicians chose who received Drug X — then sicker or healthier patients systematically cluster in one arm (confounding by indication), and the lower mortality in the X group may simply reflect that healthier people got the drug, not that the drug saved anyone. No p-value, and no statistical adjustment, can convert that association into causation.\n\nIt dominates the other legitimate questions because they are all downstream of it and only become meaningful once internal validity holds:\n- Was mortality the pre-specified primary endpoint or one outcome cherry-picked from many (multiplicity / p-hacking)? Matters only if the comparison is valid to begin with.\n- Sample size, power, and the fragility of a borderline p=0.04 (a couple of events flipping could erase it)? A precision question about a comparison that must first be unconfounded.\n- Absolute effect size and clinical significance? Interpreting the magnitude presupposes the effect is real and causal.\n- External validity / generalizability? Irrelevant if the internal result itself is not causal.\n\nRandomization is logically prior: it is the one condition that, if absent, makes the entire result uninterpretable regardless of how strong every other feature looks; if present, the remaining issues are refinements rather than deal-breakers. Therefore, before accepting \"Drug X reduces mortality,\" resolve whether the groups were formed by concealed randomization.",
+              "traceTokens": 909,
+              "elapsedSec": 150,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 2,
+              "correct": true,
+              "quality": 86,
+              "trace": 90,
+              "composite": 0.85
+            },
+            {
+              "answer": "The single most important question: **Was allocation to Drug X versus control performed by proper randomization with adequate allocation concealment, so that the two groups were comparable (exchangeable) at baseline?**\n\nWhy it outranks all rivals:\n- The press release makes a CAUSAL claim (\"Drug X reduces mortality\"), not a mere associational one. Causal inference from a between-group comparison requires that the groups be identical in expectation on all prognostic factors except the drug; only concealed randomization delivers that baseline exchangeability. Without it, the observed mortality gap — however statistically significant — could be entirely due to confounding (e.g., sicker patients differentially assigned), and the p-value then measures an association, not a treatment effect.\n- Ordering/fatality test: if randomization or concealment failed, the causal claim is dead and unfixable regardless of every other answer. If randomization held but a rival flaw exists, the claim is only weakened, not annihilated. The question whose failure is fatal AND which gates all the others is therefore the top priority.\n- The rival questions all presuppose a valid randomized experiment and only qualify a claim that randomization has already licensed: (a) whether mortality was the pre-specified primary endpoint / multiplicity — bears on whether the association is real (p=0.04 could be cherry-picked), not on whether a real association is causal; (b) absolute effect size and confidence interval — bears on magnitude and clinical importance, but a large effect from a confounded design is still non-causal; (c) blinding, attrition/loss to follow-up, and statistical power — refinements that matter only once the groups are comparable.\n\nTherefore, verifying concealed randomization (baseline comparability) is the precondition for any causal reading and must be resolved first.",
+              "traceTokens": 1075,
+              "elapsedSec": 76,
+              "atomCount": 9,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 1,
+              "correct": true,
+              "quality": 90,
+              "trace": 93,
+              "composite": 0.9090628051486906
+            },
+            {
+              "answer": "The single most important question is: Were patients RANDOMLY assigned to Drug X vs control, with concealed allocation (producing baseline-comparable groups analyzed by intention-to-treat)?\n\nWhy it outranks the others: The claim \"reduces mortality\" is causal, and causal inference requires that the intervention be the only systematic difference between the arms. Randomization with allocation concealment is what delivers exchangeable groups; it is logically upstream of every other concern. If it fails, the X and control groups may differ in baseline risk of death (confounding by indication), so the lower mortality — and the p=0.04 — could be entirely explained by who received the drug rather than by the drug. No correct handling of endpoints, blinding, power, or analysis can rescue a causal claim from a broken comparison group.\n\nEvery rival question presupposes a valid comparison and only weakens or qualifies it, so each ranks below randomization:\n- Pre-specification / multiplicity (was all-cause mortality the pre-registered primary endpoint, or a post-hoc/secondary pick?) inflates the false-positive rate, but in a randomized trial the estimate is still unbiased; randomization failure biases the point estimate itself.\n- Fragility / power (p=0.04 is borderline and could flip on a few events) concerns robustness, but a robust result on a confounded comparison is still non-causal.\n- Blinding mainly protects soft endpoints and co-interventions; all-cause mortality is objective, making this second-order.\n- Attrition / ITT integrity is decisive only after randomization has established comparable starting groups — it is downstream of randomization.\n- All-cause vs disease-specific mortality matters for interpreting what was reduced, but still presupposes an unbiased comparison.\n\nThus randomization with concealed allocation is the necessary, upstream condition: if it fails the causal claim collapses regardless of all else, whereas failures of the other questions merely qualify a comparison that randomization has already made valid. (If the trial were already known to be a rigorous RCT, the top question would shift to whether all-cause mortality was the pre-specified primary endpoint given the borderline p-value — but the press release provides no such assurance.)",
+              "traceTokens": 1590,
+              "elapsedSec": 39,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 1,
+              "correct": true,
+              "quality": 93,
+              "trace": 94,
+              "composite": 0.8828209054593875
+            },
+            {
+              "answer": "The single most important question is: **Was treatment allocation genuinely randomized with concealed allocation (and the result analyzed by intention-to-treat), so that the Drug X group and the control group were exchangeable — comparable at baseline in every prognostic factor?**\n\nWhy this outranks every other methodological concern:\n\n- The press release makes a *causal* claim (\"reduces\"), but a p=0.04 only certifies that the observed mortality difference is unlikely under the null hypothesis of no difference. A small p-value documents an association; it never, by itself, establishes causation.\n- Randomization with concealed allocation is the *only* design feature that makes the two arms exchangeable, and exchangeability is the necessary condition that converts an observed difference into a causal effect. If the groups were not comparable at baseline (e.g., a non-randomized or historical \"control,\" confounding by indication, healthier patients selected into the X arm), then confounding alone can produce the entire mortality gap — no matter how clean the p-value is. The word \"control group\" in a press release does not guarantee a randomized, concealed control.\n- It is logically *prior* to the strongest rival concern — selective reporting / multiplicity (the p=0.04 sitting just under 0.05, from an industry source, suggests mortality could be one of many endpoints, subgroups, or interim looks rather than the pre-specified primary outcome). But multiplicity only attacks whether the association is *real and robust*; even a perfectly real, robust association is still not causal without exchangeability. Conversely, a truly randomized result with mortality as a secondary endpoint is still authentic causal evidence that merely needs replication.\n- The remaining concerns — adequate power/fragility of a single result, attrition and non-ITT analysis, outcome definition, and blinding — all presuppose that a valid, comparable comparison already exists. They govern the precision and reliability of an estimate, not the license to call it causal.\n\nTherefore, establishing valid randomization/exchangeability must be resolved first: it is the one question whose failure would falsify the causal claim outright, whereas failures of the other questions only weaken or qualify it.",
+              "traceTokens": 1156,
+              "elapsedSec": 125,
+              "atomCount": 8,
+              "aotUsed": true,
+              "taskId": "trial-flaw",
+              "arm": "aot",
+              "rep": 0,
+              "correct": true,
+              "quality": 89,
+              "trace": 91,
+              "composite": 0.8486330418301125
+            },
+            {
+              "answer": "The single most important question to resolve is: Was treatment allocated by proper RANDOMIZATION with CONCEALED ALLOCATION, and was that comparison preserved by an INTENTION-TO-TREAT analysis — i.e., were the Drug X and control groups exchangeable, so the mortality difference cannot be explained by confounding rather than by the drug?\n\nWhy it outranks all other methodological questions:\n- \"Reduces mortality\" is a CAUSAL claim. Accepting causation requires not only that the signal be real (not chance) but that the comparison be unconfounded. Confounding is the deeper threat: even a perfectly real, reproducible difference does not imply the drug caused it if the groups were not comparable to begin with (e.g., confounding by indication — lower-risk patients preferentially getting X — would reproduce the exact p=0.04 result while the drug does nothing).\n- Randomization with concealed allocation is the ONLY design feature that makes the two arms exchangeable in expectation across both measured AND unmeasured confounders. It is logically prior to everything else.\n- It beats the rivals specifically:\n  • vs. pre-specification/multiplicity (was mortality the pre-specified primary endpoint?): that only certifies the association is real, not causal — a genuine, honestly-reported association in a non-randomized comparison still doesn't license \"reduces.\"\n  • vs. baseline balance: checking balance is only a partial, observable proxy that covers measured confounders; randomization is what handles unmeasured ones, so this is subsumed.\n  • vs. blinding and differential dropout/ITT: these describe ways an initially fair comparison can be corrupted AFTER allocation — they matter only once randomization has established a fair comparison, so they are second-order.\n  • vs. statistical power/fragility and generalizability/replication: these bear on precision and scope, not on whether the drug caused the effect.\n\nDecision rule: If the trial was a properly randomized, allocation-concealed, ITT comparison with mortality pre-specified, the p=0.04 is meaningful causal evidence (still to be weighed for fragility and replication). If randomization is absent, subvertible/unconcealed, or broken by differential attrition, the claim \"Drug X reduces mortality\" should be rejected regardless of the p-value — because no statistical result, however significant, can convert a confounded comparison into a causal one.",
+              "traceTokens": 1532,
+              "elapsedSec": 40,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 0,
+              "correct": true,
+              "quality": 91,
+              "trace": 92,
+              "composite": 0.8816430405105505
+            },
+            {
+              "answer": "The single most important question: Were patients allocated to Drug X versus the control group by properly randomized, allocation-concealment-protected assignment (with intention-to-treat analysis) — i.e., is the comparison actually between two exchangeable groups?\n\nWhy this outranks every other question:\n\n1. It is the necessary condition for reading the result as causal. The claim's verb is \"reduces\" (causal), but the evidence offered — a between-group difference plus p=0.04 — is only an association. A p-value quantifies how improbable the difference is under the null of \"no difference\"; it says nothing about whether the drug, rather than a difference between the groups, produced it. Only concealed randomization makes the two groups comparable in expectation across both measured and, crucially, UNMEASURED characteristics, which is what licenses the leap from association to causation. The word \"trial\" plus \"control group\" does not guarantee this — observational cohorts also have control groups, and confounding by indication (sicker or healthier patients preferentially receiving the drug) routinely manufactures mortality gaps larger than any real drug effect.\n\n2. It attacks bias, which dominates chance for a causal verdict. Two distinct failure modes threaten the claim: bias (systematic error — the estimate points at the wrong value, e.g. confounding) and chance/multiplicity (an unbiased estimate that could be a lucky draw, e.g. a cherry-picked marginal p=0.04). Bias is the deeper threat, because confounding produces a difference that is real, stable, and reproducible yet not caused by the drug — exactly the error the headline would be committing — and no sample size, replication, or p-value can cure it.\n\n3. Every rival question is conditional on this one. If allocation was not randomized, no downstream virtue rescues the claim: a pre-specified, double-blinded, ITT-analyzed primary mortality endpoint with p=0.04 is still a confounded association if the groups were not comparable by design. Conversely, if randomization holds, the estimate is protected from confounding for every comparison, which even downgrades the strongest runner-up — multiplicity/pre-specification (was mortality the pre-specified primary endpoint or one of many outcomes, given that p=0.04 sits suspiciously just under 0.05) — from \"fatal\" to merely \"inflates the false-positive rate,\" a problem alpha-control then handles. Blinding, dropout/ITT, absolute effect size and confidence interval, and external validity are all likewise refinements that only become the binding constraint after group comparability is established.\n\nRunner-up to ask next: Was mortality the pre-specified primary endpoint, or a selectively reported outcome among many? Verdict: withhold acceptance of the causal claim until randomization with concealed allocation is confirmed.",
+              "traceTokens": 1660,
+              "elapsedSec": 74,
+              "atomCount": 0,
+              "aotUsed": false,
+              "taskId": "trial-flaw",
+              "arm": "baseline",
+              "rep": 2,
+              "correct": true,
+              "quality": 90,
+              "trace": 91,
+              "composite": 0.8299684684684685
+            }
+          ]
+        }
+      },
+      "frozenBaseline": {
+        "aa-gradient": [
+          0.8031348314606742,
+          0.955876404494382,
+          0.9379375
+        ],
+        "shift-rota": [
+          0.8130000000000001,
+          0.7581519602304826,
+          0.7628361767031975
+        ],
+        "trial-flaw": [
+          0.8828209054593875,
+          0.8816430405105505,
+          0.8299684684684685
+        ]
+      },
+      "overall": {
+        "baseMean": 0.8472632541474603,
+        "aotMean": 0.8431622217621481,
+        "margin": -0.004101032385312231,
+        "noiseFloor": 0.030747007360187505,
+        "clears": false
+      }
+    },
+    {
+      "round": 1,
+      "hypothesis": "H1-verify-each-step",
+      "trialStrategy": [
+        "Add a premise atom stating the task and its givens.",
+        "Add one reasoning atom per dependent step (each depends on the prior), making each intermediate result explicit.",
+        "Immediately after each reasoning atom, add a verification atom (--supports/--refutes) checking that intermediate result against the constraints/arithmetic before building on it; resolve any refutation before proceeding to the next step.",
+        "Add a hypothesis atom for the candidate answer, depending on the verified reasoning chain.",
+        "Add a final verification atom (--supports/--refutes) checking the hypothesis against the overall constraints/arithmetic.",
+        "Add a conclusion atom; run `aot analyze` and resolve any contradiction/weakest-link warning before finalising.",
+        "Read the final answer off the conclusion atom."
+      ],
+      "perTask": {
+        "aa-gradient": {
+          "aotComposite": [
+            0.858481856702157,
+            0.8581277533039648,
+            0.788767029972752
+          ],
+          "aotMean": 0.8351255466596247,
+          "baseMean": 0.8989829119850188,
+          "margin": -0.0638573653253941
+        },
+        "shift-rota": {
+          "aotComposite": [
+            0.726930699088146,
+            0.7550000000000001,
+            0.8015303951367782
+          ],
+          "aotMean": 0.7611536980749748,
+          "baseMean": 0.77799604564456,
+          "margin": -0.016842347569585248
+        },
+        "trial-flaw": {
+          "aotComposite": [
+            0.8793980602993887,
+            0.8807580645161291,
+            0.8108736383442265
+          ],
+          "aotMean": 0.8570099210532481,
+          "baseMean": 0.8648108048128021,
+          "margin": -0.0078008837595540115
+        }
+      },
+      "margin": -0.029500198884844453,
+      "noiseFloor": 0.030127075556287186,
+      "improved": false,
+      "kept": false,
+      "analysis": "H1 not only failed to clear the noise floor (margin -0.0295 vs 0.0301) but regressed below the previous best (-0.0041), indicating that forcing a verification atom on every intermediate result adds cost and noise faster than it catches propagation errors. This makes \"add a mandatory gating step\" mechanisms (H3-analyze-gate, and especially the heavy/narrow H4-lean-trace) lower expected leverage, since they share H1's failure mode. H2-enumerate-refute is ranked first because it improves correctness by restructuring the search — generating and refuting alternatives — rather than piling verification overhead onto a single chain, so it is a distinct and cheaper mechanism than the one just falsified."
+    },
+    {
+      "round": 2,
+      "hypothesis": "H2-enumerate-refute",
+      "trialStrategy": [
+        "Add a premise atom stating the task and its givens (for CSP/logic tasks, list every constraint explicitly as part of the givens).",
+        "Add one reasoning atom per dependent step (each depends on the prior), making intermediate results explicit.",
+        "Add a hypothesis atom for the candidate answer, depending on the reasoning chain. On logic/CSP tasks (e.g. shift-rota), enumerate the viable candidate solutions and add one hypothesis atom per candidate.",
+        "Add a verification atom (--supports/--refutes) checking each hypothesis against the constraints/arithmetic. On CSP tasks, add a --refutes verification atom for every constraint a candidate violates, eliminating it, and keep the single hypothesis left with no refutations.",
+        "Add a conclusion atom; run `aot analyze` and resolve any contradiction/weakest-link warning before finalising.",
+        "Read the final answer off the conclusion atom."
+      ],
+      "perTask": {
+        "aa-gradient": {
+          "aotComposite": [
+            0.798280260707635,
+            0.8875752530560319,
+            0.8052920792079208
+          ],
+          "aotMean": 0.8303825309905292,
+          "baseMean": 0.8989829119850188,
+          "margin": -0.06860038099448962
+        },
+        "shift-rota": {
+          "aotComposite": [
+            0.7834912496581898,
+            0.7629217938200712,
+            0.7795000000000001
+          ],
+          "aotMean": 0.7753043478260869,
+          "baseMean": 0.77799604564456,
+          "margin": -0.0026916978184731155
+        },
+        "trial-flaw": {
+          "aotComposite": [
+            0.9423137324780232,
+            0.9352342995169083,
+            0.8351775956284153
+          ],
+          "aotMean": 0.9042418758744489,
+          "baseMean": 0.8648108048128021,
+          "margin": 0.03943107106164678
+        }
+      },
+      "margin": -0.010620335917105095,
+      "noiseFloor": 0.0330018351067441,
+      "improved": false,
+      "kept": false,
+      "analysis": "H2 regressed: new margin -0.0106 vs prior best -0.0041, both far inside the 0.0330 noise floor, so it is not kept (keep=false). Its failure is evidence against pure structural/prompting mandates — forcing per-candidate hypothesis enumeration plus refute atoms added overhead without a real correctness signal, the same family as H3-analyze-gate, another internal gate. H4-lean-trace ranks first because it introduces an independent external verification signal (execution/formal trace) — the kind of grounding likelier to produce an effect large enough to clear the noise floor on the verifiable subset — whereas H3 is another self-referential structural gate with low expected leverage given H2's result."
+    }
+  ],
+  "roundSummaries": [
+    {
+      "round": 0,
+      "hypothesis": "S0-baseline-aot",
+      "margin": -0.004101032385312231,
+      "noiseFloor": 0.030747007360187505,
+      "kept": true
+    },
+    {
+      "round": 1,
+      "hypothesis": "H1-verify-each-step",
+      "margin": -0.029500198884844453,
+      "noiseFloor": 0.030127075556287186,
+      "kept": false,
+      "analysis": "H1 not only failed to clear the noise floor (margin -0.0295 vs 0.0301) but regressed below the previous best (-0.0041), indicating that forcing a verification atom on every intermediate result adds cost and noise faster than it catches propagation errors. This makes \"add a mandatory gating step\" mechanisms (H3-analyze-gate, and especially the heavy/narrow H4-lean-trace) lower expected leverage, since they share H1's failure mode. H2-enumerate-refute is ranked first because it improves correctness by restructuring the search — generating and refuting alternatives — rather than piling verification overhead onto a single chain, so it is a distinct and cheaper mechanism than the one just falsified."
+    },
+    {
+      "round": 2,
+      "hypothesis": "H2-enumerate-refute",
+      "margin": -0.010620335917105095,
+      "noiseFloor": 0.0330018351067441,
+      "kept": false,
+      "analysis": "H2 regressed: new margin -0.0106 vs prior best -0.0041, both far inside the 0.0330 noise floor, so it is not kept (keep=false). Its failure is evidence against pure structural/prompting mandates — forcing per-candidate hypothesis enumeration plus refute atoms added overhead without a real correctness signal, the same family as H3-analyze-gate, another internal gate. H4-lean-trace ranks first because it introduces an independent external verification signal (execution/formal trace) — the kind of grounding likelier to produce an effect large enough to clear the noise floor on the verifiable subset — whereas H3 is another self-referential structural gate with low expected leverage given H2's result."
+    }
+  ],
+  "round0": {
+    "baseMean": 0.8472632541474603,
+    "aotMean": 0.8431622217621481,
+    "margin": -0.004101032385312231,
+    "noiseFloor": 0.030747007360187505,
+    "clears": false
+  },
+  "finalMargin": -0.004101032385312231,
+  "finalStrategy": [
+    "Add a premise atom stating the task and its givens.",
+    "Add one reasoning atom per dependent step (each depends on the prior), making intermediate results explicit.",
+    "Add a hypothesis atom for the candidate answer, depending on the reasoning chain.",
+    "Add a verification atom (--supports/--refutes) checking the hypothesis against the constraints/arithmetic.",
+    "Add a conclusion atom; run `aot analyze` and resolve any contradiction/weakest-link warning before finalising.",
+    "Read the final answer off the conclusion atom."
+  ],
+  "backlog": [
+    {
+      "id": "H4-lean-trace",
+      "hypothesis": "Cap atoms to premise+hypothesis+verification+conclusion (drop intermediate reasoning atoms) to cut trace tokens — tests whether the token-efficiency loss to baseline can be recovered without hurting correctness.",
+      "axis": "tokenEff",
+      "tested": false
+    },
+    {
+      "id": "H3-analyze-gate",
+      "hypothesis": "Run `aot analyze` and only finalise once zero contradictions/weakest-link warnings remain — trades tokens for trace quality + correctness.",
+      "axis": "trace",
+      "tested": false
+    },
+    {
+      "id": "H2-enumerate-refute",
+      "hypothesis": "On logic/CSP tasks, require a hypothesis atom per candidate solution and a refutes-verification for each constraint violation — should lift correctness on shift-rota-style tasks.",
+      "axis": "correct",
+      "tested": true
+    },
+    {
+      "id": "H1-verify-each-step",
+      "hypothesis": "Force one verification atom per intermediate result (not just the final hypothesis) — should raise objective correctness on multi-step numeric tasks by catching propagation errors early.",
+      "axis": "correct",
+      "tested": true
+    }
+  ],
+  "roundsRun": 3,
+  "recommendations": [
+    {
+      "round": 1,
+      "from": "H1-verify-each-step",
+      "recommendation": "Make verification adaptive rather than blanket per-step: trigger a verification atom only on steps flagged high-uncertainty or error-prone (e.g. numeric ops, unit conversions, branch points), instead of forcing one per intermediate result. H1's evidence shows mandatory per-step verification adds atom/token overhead and noise that outweighs the correctness it buys."
+    },
+    {
+      "round": 2,
+      "from": "H2-enumerate-refute",
+      "recommendation": "Do not mandate a hypothesis atom per candidate (H2 pattern). Instead, tighten the verification-atom contract so a 'refutes' polarity verification can prune/mark isRefuted only when it carries an attached external check (executable constraint eval / trace), rather than a self-asserted atom — grounding refutation in an independent verifier instead of added self-structure."
+    }
+  ],
+  "verdict": "aot did NOT beat freeform on this suite — honest null result"
+}
