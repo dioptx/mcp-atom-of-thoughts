@@ -1,4 +1,5 @@
 {
+  "SUPERSEDED": "This result's +0.221 'aot BEATS raw sgt' verdict is RETRACTED. It was inflated by (1) rubric leakage — the reasoning-trace task's rubric described aot's own premise/reasoning/hypothesis/verification DAG, so the aot arm got a vocabulary bonus that carried the whole margin (+0.451 of it), and (2) asymmetric token accounting — the aot arm's traceTokens came from `export --token-count` (~2000) while the baseline was charged char/4 of raw JSON, undercounting aot's real read-cost. run-integration-v2.json fixes both (decontaminated rubrics, symmetric ceil(chars/4) both arms, seeded blind judge, joint re-judging) with IDENTICAL weights, and finds margin -0.142: raw sgt BEATS the aot interleaving. Kept on disk as the honest record of a caught-and-corrected inflated result. See run-integration-v2.json.",
   "run": "run-integration",
   "unitUnderTest": "THE aot<->sgt INTEGRATION as a unit (not aot-strategy-in-general)",
   "suite": "3 corpus-grounded retrieval tasks (rate-limit, reasoning-trace, progressive-disclosure) over the real 8733-skill sgt corpus",

@@ -1,0 +1,419 @@
+{
+  "run": "run-integration-v2",
+  "supersedes": "run-integration (v1) \u2014 whose +0.221 was inflated by rubric leakage + asymmetric token accounting",
+  "unitUnderTest": "THE aot<->sgt integration as a unit (aot+sgt interleaved retrieval vs RAW sgt retrieval)",
+  "suite": "5 UNCONTAMINATED retrieval tasks over the real 8733-skill corpus (k8s-netpol, db-migration, oauth-refresh, cicd-cache, webhook-verify) \u2014 rubrics say NOTHING about atoms/DAG/premise-reasoning-hypothesis, so the aot arm gets no vocabulary bonus",
+  "fixesVsV1": [
+    "Decontaminated rubrics: no aot-specific vocabulary the judge could reward.",
+    "Symmetric traceTokens: BOTH arms measure ceil(chars-read/4) of retrieval output \u2014 v1 undercounted aot by using export --token-count while charging baseline char/4.",
+    "Seeded blind judge order (mulberry32 shuffle) instead of length-sort.",
+    "Joint re-judging: mutation-round aot samples scored in the SAME judge call as the frozen baseline answers under one normalization pool (v1 judged them separately under drifting pools).",
+    "Replicate retry: one re-agent on null instead of silent filter(Boolean) drop."
+  ],
+  "weights": {
+    "correct": 0.35,
+    "quality": 0.2,
+    "trace": 0.2,
+    "tokenEff": 0.15,
+    "timeEff": 0.1
+  },
+  "weightsNote": "IDENTICAL to v1 \u2014 never tuned. Correcting the verdict by fixing measurement, not by moving the goalposts.",
+  "replicates": 3,
+  "round0": {
+    "aotMean": 0.7258,
+    "baseMean": 0.868,
+    "margin": -0.1422,
+    "noiseFloor": 0.0447,
+    "clears": true
+  },
+  "perTask": {
+    "k8s-netpol": {
+      "aotMean": 0.5829,
+      "baseMean": 0.8398,
+      "margin": -0.2569,
+      "samples": [
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 76,
+          "trace": 87,
+          "traceTokens": 4700,
+          "elapsedSec": 108,
+          "atomCount": 21,
+          "aotUsed": true,
+          "composite": 0.6808387096774194
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 92,
+          "traceTokens": 4550,
+          "elapsedSec": 93,
+          "atomCount": 19,
+          "aotUsed": true,
+          "composite": 0.7384011220196354
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 95,
+          "trace": 97,
+          "traceTokens": 4800,
+          "elapsedSec": 32,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8166086956521739
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 85,
+          "trace": 84,
+          "traceTokens": 2425,
+          "elapsedSec": 16,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9029193548387097
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 93,
+          "trace": 95,
+          "traceTokens": 4800,
+          "elapsedSec": 40,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.7999130434782609
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 40,
+          "trace": 22,
+          "traceTokens": 1700,
+          "elapsedSec": 57,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.3294347826086957
+        }
+      ]
+    },
+    "db-migration": {
+      "aotMean": 0.8428,
+      "baseMean": 0.8274,
+      "margin": 0.0154,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 93,
+          "trace": 96,
+          "traceTokens": 2450,
+          "elapsedSec": 18,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.846951507208388
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 92,
+          "trace": 95,
+          "traceTokens": 2610,
+          "elapsedSec": 15,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8295045871559633
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 93,
+          "trace": 92,
+          "traceTokens": 2650,
+          "elapsedSec": 20,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8057142857142858
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 85,
+          "trace": 90,
+          "traceTokens": 1720,
+          "elapsedSec": 42,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8508387942332898
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 82,
+          "trace": 87,
+          "traceTokens": 1560,
+          "elapsedSec": 50,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8380000000000001
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 84,
+          "trace": 89,
+          "traceTokens": 1690,
+          "elapsedSec": 46,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8395386631716908
+        }
+      ]
+    },
+    "oauth-refresh": {
+      "aotMean": 0.6517,
+      "baseMean": 0.9757,
+      "margin": -0.3241,
+      "samples": [
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 84,
+          "trace": 96,
+          "traceTokens": 5125,
+          "elapsedSec": 106,
+          "atomCount": 23,
+          "aotUsed": true,
+          "composite": 0.830953947368421
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 94,
+          "trace": 95,
+          "traceTokens": 2900,
+          "elapsedSec": 15,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.973
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 94,
+          "trace": 96,
+          "traceTokens": 8700,
+          "elapsedSec": 148,
+          "atomCount": 24,
+          "aotUsed": true,
+          "composite": 0.73
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 94,
+          "trace": 95,
+          "traceTokens": 2700,
+          "elapsedSec": 18,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9757443609022556
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 96,
+          "trace": 95,
+          "traceTokens": 2810,
+          "elapsedSec": 16,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9784981203007519
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 78,
+          "trace": 30,
+          "traceTokens": 3200,
+          "elapsedSec": 94,
+          "atomCount": 14,
+          "aotUsed": true,
+          "composite": 0.39410150375939856
+        }
+      ]
+    },
+    "cicd-cache": {
+      "aotMean": 0.8076,
+      "baseMean": 0.8229,
+      "margin": -0.0153,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 92,
+          "trace": 96,
+          "traceTokens": 2650,
+          "elapsedSec": 15,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.826
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 90,
+          "trace": 92,
+          "traceTokens": 2560,
+          "elapsedSec": 63,
+          "atomCount": 10,
+          "aotUsed": true,
+          "composite": 0.7815000000000001
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 91,
+          "traceTokens": 2450,
+          "elapsedSec": 60,
+          "atomCount": 10,
+          "aotUsed": true,
+          "composite": 0.8642500000000001
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 89,
+          "trace": 92,
+          "traceTokens": 2580,
+          "elapsedSec": 57,
+          "atomCount": 10,
+          "aotUsed": true,
+          "composite": 0.777
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 91,
+          "trace": 93,
+          "traceTokens": 2650,
+          "elapsedSec": 21,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8055000000000001
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 91,
+          "trace": 89,
+          "traceTokens": 2600,
+          "elapsedSec": 20,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8370833333333334
+        }
+      ]
+    },
+    "webhook-verify": {
+      "aotMean": 0.7441,
+      "baseMean": 0.8743,
+      "margin": -0.1302,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 90,
+          "trace": 80,
+          "traceTokens": 2200,
+          "elapsedSec": 28,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9381818181818182
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 90,
+          "trace": 78,
+          "traceTokens": 3213,
+          "elapsedSec": 28,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.7841818181818182
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 66,
+          "traceTokens": 2800,
+          "elapsedSec": 82,
+          "atomCount": 11,
+          "aotUsed": true,
+          "composite": 0.7191549851924975
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 82,
+          "trace": 62,
+          "traceTokens": 2400,
+          "elapsedSec": 62,
+          "atomCount": 11,
+          "aotUsed": true,
+          "composite": 0.7947486314278023
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 85,
+          "trace": 64,
+          "traceTokens": 2750,
+          "elapsedSec": 81,
+          "atomCount": 11,
+          "aotUsed": true,
+          "composite": 0.7183769182446379
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 95,
+          "trace": 96,
+          "traceTokens": 2750,
+          "elapsedSec": 27,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.900558736426456
+        }
+      ]
+    }
+  },
+  "mutationRounds": [
+    {
+      "round": 1,
+      "hypothesis": "INT4-gap-gated-expand2",
+      "margin": -0.3973,
+      "noiseFloor": 0.0594,
+      "kept": false,
+      "analysis": "Gap-gated expansion of the runner-up regressed the margin sharply (-0.3973 vs prev best -0.1422, well beyond noise 0.0594), indicating that expanding a near-tied #2 hypothesis dilutes the judged output rather than adding useful disclosure \u2014 the extra expansion likely injects competing framings that the joint judge penalizes as incoherence or hedging. The gating condition (~15% score gap) fires too often on advise rankings whose scores are naturally close, so the \"borderline only\" path became the common path and the cheap clear-win path rarely triggered."
+    },
+    {
+      "round": 2,
+      "hypothesis": "INT5-refute-retain",
+      "margin": -0.1251,
+      "noiseFloor": 0.0277,
+      "kept": false,
+      "analysis": null
+    }
+  ],
+  "round2Caveat": "Round 2 (INT5) hit the Fable 5 usage limit mid-run: webhook-verify arm + synth errored, so its margin is over 4/5 tasks. Round 0 (headline) and Round 1 are complete over all 5 tasks.",
+  "finalMargin": -0.1422,
+  "verdict": "v2: raw sgt beats the aot interleaving on uncontaminated tasks \u2014 honest negative; v1 verdict was rubric-leakage-inflated",
+  "mechanism": "On uncontaminated tasks with symmetric cost accounting, raw sgt retrieval BEATS the aot-interleaved arm. The frontier model, handed raw sgt excerpts, already answers correctly and cites them (baseline correct~1, high quality/trace). The aot epistemic layer (route->advise->expand->judge->trace) adds real token + latency cost that the composite (0.25 efficiency weight) charges, and its added quality/trace does not exceed that cost when the baseline is already right. Both usage-strategy mutations (gap-gated 2nd expand; refute-retain) lost. Reconciles EXACTLY with run-002: aot is unrepaid wherever the baseline is already correct.",
+  "whatWouldFlipIt": "A regime where raw sgt retrieval MISSES the right skill (aot route/advise/judge re-ranking surfaces it) or the disclosed excerpt would MISLEAD the base model (aot verification catches it). Good sgt retrieval + a frontier model on answerable tasks does not reach that regime. The sgt run one-shot cuts latency (timeEff, 0.10 weight) but not the disclosed-excerpt token cost, so it cannot flip a correctness-dominated composite."
+}

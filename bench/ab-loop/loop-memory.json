@@ -81,17 +81,27 @@
     },
     {
       "run": "run-integration",
-      "unitUnderTest": "THE aot<->sgt integration as a unit (aot+sgt interleaved retrieval vs RAW sgt retrieval) — NOT aot-strategy-in-general",
-      "suite": "3 corpus-grounded retrieval tasks over the real 8733-skill sgt corpus (rate-limit, reasoning-trace, progressive-disclosure)",
-      "weights": { "correct": 0.35, "quality": 0.20, "trace": 0.20, "tokenEff": 0.15, "timeEff": 0.10 },
+      "status": "SUPERSEDED / RETRACTED by run-integration-v2",
+      "suite": "3 tasks (rate-limit, reasoning-trace, progressive-disclosure)",
       "round0Margin": 0.2212,
-      "noiseFloor": 0.1263,
+      "claimedVerdict": "aot BEATS raw sgt (+0.221) — RETRACTED",
+      "whyRetracted": "Inflated by (1) rubric leakage: the reasoning-trace rubric described aot's own premise/reasoning/hypothesis/verification DAG, giving the aot arm a vocabulary bonus worth +0.451 of the margin; (2) asymmetric token accounting: aot traceTokens from export --token-count (~2000) vs baseline char/4 of raw JSON, undercounting aot's read-cost. The self-improvement loop's own critique pass caught this; v2 fixes both with identical weights and reverses the sign. See results/run-integration.json (SUPERSEDED banner)."
+    },
+    {
+      "run": "run-integration-v2",
+      "unitUnderTest": "THE aot<->sgt integration as a unit (aot+sgt interleaved vs RAW sgt), decontaminated",
+      "suite": "5 UNCONTAMINATED retrieval tasks over the real 8733-skill corpus (k8s-netpol, db-migration, oauth-refresh, cicd-cache, webhook-verify) — rubrics never name atoms/DAG/aot vocabulary",
+      "weights": { "correct": 0.35, "quality": 0.20, "trace": 0.20, "tokenEff": 0.15, "timeEff": 0.10 },
+      "weightsNote": "IDENTICAL to v1 — verdict corrected by fixing MEASUREMENT (decontamination + symmetric cost accounting + seeded joint judging + retry), not by tuning weights.",
+      "round0Margin": -0.1422,
+      "noiseFloor": 0.0447,
       "clears": true,
-      "perTaskMargin": { "rate-limit": 0.1126, "reasoning-trace": 0.4512, "progressive-disclosure": 0.1092 },
-      "mutations": "INT1-expand-top2 (margin 0.157, discarded) and INT2-judge-prune (margin 0.175, discarded) — both below S0's 0.221; S0 remains best. Two refinement recs banked (confidence-gap-gated 2nd expansion; retain refuted hypotheses as --refutes counter-evidence rather than hard-drop).",
-      "verdict": "aot<->sgt interleaving BEATS raw sgt retrieval: margin +0.221 clears noise floor 0.126. All three tasks positive; reasoning-trace largest (+0.451) — the aot epistemic DAG is exactly what auditable-reasoning retrieval rewards. Opposite regime to run-002: on RETRIEVAL, value lives in grounded/verified progressive disclosure, which raw sgt lacks, so the aot layer is repaid. See results/run-integration.json.",
-      "closesGoal": "This is the self-improvement loop closed OVER THE INTEGRATION as a unit — the gap the Stop hook flagged after the generic ab-loop."
+      "perTaskMargin": { "k8s-netpol": -0.2569, "db-migration": 0.0154, "oauth-refresh": -0.3241, "cicd-cache": -0.0153, "webhook-verify": -0.1302 },
+      "mutations": "INT4-gap-gated-expand2 (margin -0.397, discarded) and INT5-refute-retain (margin -0.125 over 4/5 tasks after a usage-limit cutoff, discarded). Neither usage-strategy mutation helped.",
+      "verdict": "RAW sgt retrieval BEATS the aot interleaving on uncontaminated tasks: margin -0.142 clears noise floor 0.045. 4/5 tasks negative (oauth -0.324, k8s -0.257, webhook -0.130, cicd -0.015; db-migration +0.015 tie). The v1 win was a measurement artifact. See results/run-integration-v2.json.",
+      "mechanism": "Frontier model + raw sgt excerpts already answers correctly and cites them (baseline correct~1, high quality/trace). The aot layer's route->advise->expand->judge->trace adds token+latency cost the composite charges (0.25 efficiency weight), and its added quality/trace does not exceed that cost when the baseline is already right. This is run-002's mechanism EXACTLY: aot is unrepaid wherever the baseline is already correct.",
+      "sgtRunNote": "The `aot sgt run` one-shot (shipped, 566 tests green) cuts agent round-trips/latency (timeEff, 0.10 weight) but not the disclosed-excerpt token cost, so it cannot flip a correctness-dominated composite. Verified as a code-level optimization; does not change the verdict."
     }
   ],
-  "lastVerdict": "run-integration: the aot<->sgt INTEGRATION measurably beats raw sgt retrieval (+0.221 > noise 0.126). Reconciles with run-002: aot's marginal value appears where the baseline lacks structure (grounded/verified retrieval), not where a frontier model already answers textbook problems correctly freeform. The integration self-improvement loop is closed; S0 usage strategy is the current optimum, two mutations honestly rejected."
+  "lastVerdict": "run-integration-v2 (decontaminated, symmetric): RAW sgt retrieval BEATS the aot interleaving, margin -0.142 > noise 0.045. The v1 +0.221 'win' was RETRACTED as a rubric-leakage + asymmetric-token-accounting artifact — caught by the loop's own critical-evaluation pass. CONVERGENCE: across run-001 (tie), run-002 (-0.084), and run-integration-v2 (-0.142), the invariant is that the aot epistemic layer is unrepaid whenever a frontier model is ALREADY correct — which good sgt retrieval on answerable tasks always is. aot's value regime requires base-model-WRONG or retrieval-MISS; usage-strategy mutations cannot reach it, and tuning weights to reach it is the External-Reference-Ratchet trap (forbidden). No further usage-level optimization is determinable without changing the task regime or the ranker (a different experiment, not this loop)."
 }
