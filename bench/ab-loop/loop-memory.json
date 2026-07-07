@@ -104,6 +104,18 @@
       "sgtRunNote": "The `aot sgt run` one-shot (shipped, 566 tests green) cuts agent round-trips/latency (timeEff, 0.10 weight) but not the disclosed-excerpt token cost. ARGUED (not measured — the aot-with-sgt-run arm was never run) to be unable to flip a correctness-dominated composite; verified only as a functioning code-level optimization."
     }
   ],
+  "terminalDetermination": {
+    "claim": "No further optimization of the aot<->sgt integration is DETERMINABLE. The recursion has converged with evidence.",
+    "candidatesExhausted": [
+      "Usage-strategy mutations (INT1/INT2 in v1, INT4/INT5 in v2): all lost the noise-floor gate.",
+      "Measurement fixes (decontamination, symmetric token accounting, seeded joint judging, retry): done in v2; corrected the inflated v1 result.",
+      "Latency optimization (aot sgt run one-shot, --gap gated 2nd disclosure): shipped, 566 tests green.",
+      "aot's PREDICTED value regime (retrieval-miss): tested in run-adversarial, falsified as a general claim (margin -0.100 within noise; correct-grounding 75% < 83%).",
+      "Ambiguity-gate to capture aot's narrow pocket (invoke aot only on high-ambiguity retrievals): UNSUPPORTED. Checked whether any cheap pre-answer retrieval signal separates aot's one win from its losses — it does not. The top1/top2 score gap is ANTI-correlated: the single aot win (dead-letter +0.123) had the LARGEST gap (22.3, decoy looked most confident), while all 3 aot losses had SMALLER gaps (5.3-9.4). A small-gap->escalate gate would fire aot where it loses and skip it where it wins. Absolute top-1 score also does not discriminate. Building the gate would be speculative against contrary evidence.",
+      "Ranker weight re-tuning: origin/main's separate A/B+hill-climb work, superseded by the refactor's engine/rank.ts; recoverable from git history; a risky port with unvalidated payoff on the new architecture — a focused human-authorized follow-up, not an autonomously-determinable optimization."
+    ],
+    "conclusion": "Every determinable lever has been pulled or shown unsupported. Further work would require either speculative feature-building against contrary evidence (the gate) or a risky large port with unvalidated payoff (ranker re-tuning) — both violate evidence-first/YAGNI discipline. The honest terminal state: raw sgt retrieval is the default; the aot epistemic layer is not repaid on answerable tasks and has no reliably-detectable trigger regime in this corpus+model."
+  },
   "adversarialRun": {
     "run": "run-adversarial",
     "question": "Does aot beat raw sgt in its PREDICTED regime — retrieval MISSES (naive top-1 off-domain)?",
