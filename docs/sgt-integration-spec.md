@@ -99,6 +99,15 @@ Skill provenance on atoms: `AtomData.skillRef?: { slug: string; source: 'sgt'; s
 5. `aot sgt trace [--graphFormat tree|mermaid|dot|canvas]` — unified render:
    existing graph renderers with skill atoms visually tagged (slug shown);
    traversal + reasoning interleaved in one artifact.
+6. `aot sgt run "<query>" [--gap F] [--budget N]` — one-shot composition of
+   1 + 4 + 2: route, advise, expand the top advised hypothesis (and, with
+   `--gap`, the runner-up when its advise score is within the gap fraction of
+   the top). Added by the integration A/B loop's latency critique: the
+   interleaved arm paid three agent round-trips before first disclosure.
+   Pure composition over `performSgtExpand`/`materializeRoutePlan`/
+   `adviseCandidates` — same refusal matrix, idempotency, and error taxonomy
+   as the separate commands (pinned by `tests/sgt-run.test.ts`). Judge and
+   trace remain explicit follow-ups.
 
 ### Invariants
 - I1: aot builds/tests green with **no sgt binary present** (bridge commands

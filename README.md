@@ -211,6 +211,7 @@ Loose coupling to the external [skill-graph-traversal](https://github.com/zpankz
 | `aot sgt judge <atomId\|slug> --supports\|--refutes` | polarity verdict atom (`j:{slug}:{polarity}`) riding standard verifyAtom propagation | no |
 | `aot sgt advise` | ranked `{action, command, why}` next steps from session state alone | no |
 | `aot sgt trace --graphFormat tree\|mermaid\|dot\|canvas` | unified trace through the `aot graph` renderers with skill atoms tagged `[sgt:slug]`; byte-identical to `aot graph` when no skill atoms exist | no |
+| `aot sgt run "<query>" [--gap F]` | one-shot `route` + `advise` + `expand <top advised>` (one round-trip instead of three); `--gap 0.15` also discloses the runner-up when advise scores it within 15% of the top | yes |
 
 `aot analyze` lints stale skill hypotheses as informational `advise_pending` issues (`awaits expand` / `awaits judge`). They always appear in `issues`, but the default `--gate` exempts them (the gate payload reports `failOn: 'all'` plus `exempt: ['advise_pending']`); opt in explicitly with `--failOn advise_pending`.
 
