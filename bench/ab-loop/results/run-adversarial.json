@@ -1,0 +1,311 @@
+{
+  "run": "run-adversarial",
+  "question": "Does aot+sgt beat raw sgt in its PREDICTED value regime \u2014 retrieval MISSES where the naive top-1 skill is off-domain?",
+  "suite": "4 adversarial retrieval-miss tasks over the real 8733-skill corpus, each with a VERIFIED lexical-decoy top-1 (db-index->openalex academic DB; rate-limit->storage buckets/context-budget; dead-letter->outlook-email; conn-pool->bioservices API). Correct skill exists but is buried.",
+  "design": "Both arms told the top hit may be off-domain and BOTH free to re-search (symmetric). aot arm additionally uses judge --refutes + refine-reroute; baseline picks best-of-top-6 and re-searches by its own judgment. Grounding-required rubrics, symmetric traceTokens, seeded blind joint judge, replicate retry. Same weights as v2. Single A/B round (no mutations).",
+  "weights": {
+    "correct": 0.35,
+    "quality": 0.2,
+    "trace": 0.2,
+    "tokenEff": 0.15,
+    "timeEff": 0.1
+  },
+  "replicates": 3,
+  "overall": {
+    "aotMean": 0.626,
+    "baseMean": 0.7264,
+    "margin": -0.1004,
+    "noiseFloor": 0.1268,
+    "clears": false
+  },
+  "correctGrounding": {
+    "aot": 0.75,
+    "baseline": 0.8333,
+    "delta": -0.0833
+  },
+  "perTask": {
+    "adv-db-index": {
+      "aotMean": 0.6265,
+      "baseMean": 0.765,
+      "margin": -0.1385,
+      "aotCorrectRate": 0.667,
+      "baseCorrectRate": 1,
+      "samples": [
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 91,
+          "trace": 86,
+          "traceTokens": 1485,
+          "elapsedSec": 63,
+          "atomCount": 9,
+          "aotUsed": true,
+          "composite": 0.8941539464446897
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 88,
+          "trace": 85,
+          "traceTokens": 2150,
+          "elapsedSec": 29,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8847573964497042
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 0,
+          "trace": 0,
+          "traceTokens": 2650,
+          "elapsedSec": 88,
+          "atomCount": 16,
+          "aotUsed": true,
+          "composite": 0.04437869822485207
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 54,
+          "trace": 58,
+          "traceTokens": 3150,
+          "elapsedSec": 46,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.645186440677966
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 93,
+          "trace": 91,
+          "traceTokens": 1460,
+          "elapsedSec": 45,
+          "atomCount": 9,
+          "aotUsed": true,
+          "composite": 0.9408813559322035
+        }
+      ]
+    },
+    "adv-rate-limit": {
+      "aotMean": 0.6203,
+      "baseMean": 0.92,
+      "margin": -0.2996,
+      "aotCorrectRate": 0.667,
+      "baseCorrectRate": 1,
+      "samples": [
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 84,
+          "trace": 36,
+          "traceTokens": 4900,
+          "elapsedSec": 106,
+          "atomCount": 18,
+          "aotUsed": true,
+          "composite": 0.31555555555555553
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 86,
+          "trace": 78,
+          "traceTokens": 3010,
+          "elapsedSec": 271,
+          "atomCount": 17,
+          "aotUsed": true,
+          "composite": 0.8006730418943534
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 92,
+          "trace": 82,
+          "traceTokens": 3950,
+          "elapsedSec": 378,
+          "atomCount": 20,
+          "aotUsed": true,
+          "composite": 0.7447213114754099
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 88,
+          "trace": 85,
+          "traceTokens": 2550,
+          "elapsedSec": 18,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9115737704918033
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 85,
+          "trace": 80,
+          "traceTokens": 1850,
+          "elapsedSec": 24,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9283333333333335
+        }
+      ]
+    },
+    "adv-dead-letter": {
+      "aotMean": 0.7545,
+      "baseMean": 0.6318,
+      "margin": 0.1227,
+      "aotCorrectRate": 1,
+      "baseCorrectRate": 0.667,
+      "samples": [
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 82,
+          "traceTokens": 2820,
+          "elapsedSec": 99,
+          "atomCount": 17,
+          "aotUsed": true,
+          "composite": 0.7656802721088436
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 84,
+          "trace": 77,
+          "traceTokens": 2380,
+          "elapsedSec": 30,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9097551020408163
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 90,
+          "trace": 93,
+          "traceTokens": 2825,
+          "elapsedSec": 88,
+          "atomCount": 16,
+          "aotUsed": true,
+          "composite": 0.8018630952380953
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 85,
+          "traceTokens": 3100,
+          "elapsedSec": 116,
+          "atomCount": 19,
+          "aotUsed": true,
+          "composite": 0.6960000000000001
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 77,
+          "trace": 71,
+          "traceTokens": 2950,
+          "elapsedSec": 24,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.7711275510204082
+        },
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 0,
+          "trace": 0,
+          "traceTokens": 2550,
+          "elapsedSec": 18,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.21458333333333332
+        }
+      ]
+    },
+    "adv-conn-pool": {
+      "aotMean": 0.5027,
+      "baseMean": 0.6661,
+      "margin": -0.1634,
+      "aotCorrectRate": 0.667,
+      "baseCorrectRate": 0.667,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 0,
+          "trace": 0,
+          "traceTokens": 2300,
+          "elapsedSec": 27,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.225946173254836
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 92,
+          "trace": 82,
+          "traceTokens": 3600,
+          "elapsedSec": 90,
+          "atomCount": 19,
+          "aotUsed": true,
+          "composite": 0.7126341463414635
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 0,
+          "trace": 0,
+          "traceTokens": 3420,
+          "elapsedSec": 93,
+          "atomCount": 19,
+          "aotUsed": true,
+          "composite": 0.029596299411269976
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 90,
+          "trace": 92,
+          "traceTokens": 3100,
+          "elapsedSec": 102,
+          "atomCount": 18,
+          "aotUsed": true,
+          "composite": 0.7657241379310346
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 82,
+          "trace": 66,
+          "traceTokens": 2150,
+          "elapsedSec": 20,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.896
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 88,
+          "trace": 80,
+          "traceTokens": 2550,
+          "elapsedSec": 35,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8763280067283431
+        }
+      ]
+    }
+  },
+  "dataQualityNote": "4 of 24 arm samples were StructuredOutput artifacts (a \"test\" echo / zero-quality), 2 per arm \u2014 symmetric noise, small n. Discounting them does not flip the sign.",
+  "verdict": "Within noise under retrieval misses \u2014 aot verification/refine does not reliably beat a capable model's own re-search on this suite.",
+  "finding": "HYPOTHESIS FALSIFIED (as a general claim). Even in the retrieval-miss regime aot does NOT reliably beat raw sgt: overall margin -0.100 within noise 0.127, and correct-grounding rate aot 75% < baseline 83%. A capable frontier model told the top hit may be off-domain re-searches on its own and recovers grounding as well or better, at lower cost \u2014 so aot verification/refine is not the differentiator here.",
+  "narrowPocketOfValue": "On the SINGLE most severe decoy (adv-dead-letter: letter/message -> outlook-email at #1), aot WON: +0.123, correct-grounding 100% vs baseline 67%. aot forced judge --refutes on the email skill then refined, while the baseline sometimes grounded in email. This is the mechanism working exactly where predicted \u2014 but it appears only at extreme decoy severity and does not generalize across the suite.",
+  "conclusion": "Across run-002 (textbook -0.084), run-integration-v2 (uncontaminated retrieval -0.142), and run-adversarial (retrieval-miss -0.100 within noise), the aot epistemic layer is not repaid over raw sgt + a capable model. Its value appears only in a narrow pocket (most-severe retrieval decoys) too small to clear noise. The honest engineering conclusion: keep sgt retrieval as the default path; the aot verification layer is worth invoking only on detected high-ambiguity retrievals, not by default."
+}
