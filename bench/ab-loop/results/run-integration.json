@@ -1,0 +1,269 @@
+{
+  "run": "run-integration",
+  "unitUnderTest": "THE aot<->sgt INTEGRATION as a unit (not aot-strategy-in-general)",
+  "suite": "3 corpus-grounded retrieval tasks (rate-limit, reasoning-trace, progressive-disclosure) over the real 8733-skill sgt corpus",
+  "arms": {
+    "aot": "aot+sgt INTERLEAVED: sgt route -> advise -> expand (progressive disclosure) -> judge (verified selection) -> trace, answer grounded ONLY in disclosed excerpt",
+    "baseline": "RAW sgt retrieval: graph search / route plan / context pack \u2014 NO aot layer, no reasoning graph, no verification"
+  },
+  "weights": {
+    "correct": 0.35,
+    "quality": 0.2,
+    "trace": 0.2,
+    "tokenEff": 0.15,
+    "timeEff": 0.1
+  },
+  "replicates": 3,
+  "round0": {
+    "aotMean": 0.7204,
+    "baseMean": 0.4992,
+    "margin": 0.2212,
+    "noiseFloor": 0.1263,
+    "clears": true
+  },
+  "perTask": {
+    "rate-limit": {
+      "aotMean": 0.7222,
+      "baseMean": 0.6097,
+      "margin": 0.1126,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 85,
+          "trace": 8,
+          "traceTokens": 2100,
+          "elapsedSec": 21,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.42907691291481714
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 93,
+          "trace": 86,
+          "traceTokens": 2100,
+          "elapsedSec": 14,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.9538881578947369
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 68,
+          "trace": 68,
+          "traceTokens": 2987,
+          "elapsedSec": 263,
+          "atomCount": 19,
+          "aotUsed": true,
+          "composite": 0.622
+        },
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 89,
+          "trace": 10,
+          "traceTokens": 2075,
+          "elapsedSec": 19,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.44599196787148593
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 80,
+          "trace": 93,
+          "traceTokens": 2745,
+          "elapsedSec": 209,
+          "atomCount": 18,
+          "aotUsed": true,
+          "composite": 0.7574893785668992
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 79,
+          "trace": 88,
+          "traceTokens": 2526,
+          "elapsedSec": 195,
+          "atomCount": 16,
+          "aotUsed": true,
+          "composite": 0.7871316053688439
+        }
+      ]
+    },
+    "reasoning-trace": {
+      "aotMean": 0.8587,
+      "baseMean": 0.4075,
+      "margin": 0.4512,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 0,
+          "trace": 0,
+          "traceTokens": 2175,
+          "elapsedSec": 22,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.10570175438596492
+        },
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 62,
+          "trace": 30,
+          "traceTokens": 1780,
+          "elapsedSec": 14,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.3496798245614035
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 80,
+          "trace": 84,
+          "traceTokens": 1011,
+          "elapsedSec": 62,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8280000000000001
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 86,
+          "trace": 87,
+          "traceTokens": 1011,
+          "elapsedSec": 48,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8751666666666668
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 87,
+          "trace": 88,
+          "traceTokens": 1011,
+          "elapsedSec": 51,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8729166666666668
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 85,
+          "trace": 83,
+          "traceTokens": 2379,
+          "elapsedSec": 23,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.7672500000000001
+        }
+      ]
+    },
+    "progressive-disclosure": {
+      "aotMean": 0.5804,
+      "baseMean": 0.4712,
+      "margin": 0.1092,
+      "samples": [
+        {
+          "arm": "baseline",
+          "correct": false,
+          "quality": 8,
+          "trace": 10,
+          "traceTokens": 2180,
+          "elapsedSec": 13,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.136
+        },
+        {
+          "arm": "baseline",
+          "correct": true,
+          "quality": 90,
+          "trace": 82,
+          "traceTokens": 2100,
+          "elapsedSec": 13,
+          "atomCount": 0,
+          "aotUsed": false,
+          "composite": 0.8063839009287926
+        },
+        {
+          "arm": "aot",
+          "correct": true,
+          "quality": 88,
+          "trace": 88,
+          "traceTokens": 1211,
+          "elapsedSec": 51,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.8728333333333335
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 80,
+          "trace": 62,
+          "traceTokens": 1211,
+          "elapsedSec": 57,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.4423333333333334
+        },
+        {
+          "arm": "aot",
+          "correct": false,
+          "quality": 78,
+          "trace": 60,
+          "traceTokens": 1211,
+          "elapsedSec": 61,
+          "atomCount": 8,
+          "aotUsed": true,
+          "composite": 0.42600000000000005
+        }
+      ]
+    }
+  },
+  "mutationRounds": [
+    {
+      "round": 1,
+      "hypothesis": "INT1-expand-top2",
+      "margin": 0.1573,
+      "noiseFloor": 0.1489,
+      "kept": false,
+      "analysis": "Expanding the top-2 advised hypotheses yielded margin 0.1573, which is below the prior best (0.2212) and only marginally above the noise floor (0.1489), so the extra disclosure did not reliably improve grounding \u2014 it mostly added token cost without clearing the bar. The two-expansion path likely diluted the answer with a weaker second hypothesis, blurring the signal from the single strong top-1 expansion rather than reinforcing it."
+    },
+    {
+      "round": 2,
+      "hypothesis": "INT2-judge-prune",
+      "margin": 0.1751,
+      "noiseFloor": 0.1348,
+      "kept": false,
+      "analysis": "The judge-and-prune mutation scored margin 0.1751 \u2014 clearing the noise floor (0.1348) but falling short of the prior best (0.2212), so it did not clear and offers no net gain. Hard-dropping refuted hypotheses and citing only --supports likely discarded useful contrastive context, so the selection filter over-pruned rather than sharpening the trace."
+    }
+  ],
+  "recommendations": [
+    {
+      "round": 1,
+      "from": "INT1-expand-top2",
+      "recommendation": "Instead of expanding a fixed top-2, gate the second expansion on the advisor's confidence gap: only expand the runner-up when its score is within a small delta of top-1, so borderline cases get disclosure while clear-winner cases keep the cheaper, higher-margin single expansion."
+    },
+    {
+      "round": 2,
+      "from": "INT2-judge-prune",
+      "recommendation": "Soften the prune: keep the per-hypothesis judging but retain refuted hypotheses as explicit counter-evidence in the trace (cite them as --refutes rather than deleting), so the aot expansion feeds sgt both supported and contrastive context instead of a support-only subset."
+    }
+  ],
+  "finalStrategy": "S0 (route->advise->expand->judge->trace) \u2014 both mutations discarded; S0 remains best",
+  "finalMargin": 0.2212,
+  "verdict": "The aot<->sgt interleaving BEATS raw sgt retrieval (clears noise floor) \u2014 the integration adds measurable value",
+  "agentsErrored": 2,
+  "agentErrorNote": "2 of 49 agents hit the StructuredOutput retry cap (transient); surviving replicates >=2 per arm/task, verdict robust to their loss"
+}
