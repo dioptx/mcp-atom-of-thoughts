@@ -1872,31 +1872,20 @@ function sgtExpandRefused(atomId: string, reason: ExpandRefusalReason): Errors.I
   });
 }
 
-sgt.command('expand', {
-  description: 'Progressive disclosure for one sgt skill hypothesis: run `sgt context pack <slug>` with the original route query, print budgeted excerpts, and upsert a pending polarity-free verification scaffold (sgt:q{hash}:e:{slug}) whose evidence carries excerpt provenance. Refuses refuted/verified/superseded hypotheses BEFORE spawning sgt — settled questions cost no context. Re-expands are diff-idempotent.',
-  args: z.object({ target: z.string().describe('Hypothesis atom ID (sgt:q{hash}:h:{slug}) or bare skill slug') }),
-  options: z.object({
-    budget: z.coerce.number().default(1200).describe('sgt context token budget'),
-    windows: z.coerce.number().optional().describe('Excerpt windows per skill passed to sgt'),
-    refs: z.coerce.number().optional().describe('Maximum internal references per skill passed to sgt'),
-    sessionId: z.string().optional().describe('Session (default active)'),
-    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
-  }),
-  alias: { budget: 'b' },
-  output: AnyOutput,
-  examples: [
-    { args: { target: 'k8s-manifest-generator' }, description: 'Disclose budgeted excerpts for a routed skill hypothesis' },
-    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 1200 }), description: 'Disclose under an explicit context budget' },
-    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 600, windows: 3 }), description: 'Tighter budget, more excerpt windows' },
-  ],
-  async run({ args, options }) {
+/**
+ * Shared expand implementation for `aot sgt expand` and `aot sgt run`:
+ * three-phase (preflight read -> subprocess -> locked write) progressive
+ * disclosure of one hypothesis. Extracted verbatim so both commands share
+ * one refusal matrix and one idempotency contract.
+ */
+async function performSgtExpand(target: string, options: { budget: number; windows?: number; refs?: number; sessionId?: string; trace?: boolean }): Promise<Record<string, unknown>> {
     // Phase 1 (read-only, NO subprocess yet): resolve the hypothesis and gate
     // on the refusal matrix. A refused expand must never spawn sgt.
     const preflight = withDomainErrors(() => {
       const server = makeServer();
       const sessionId = options.sessionId ?? server.getActiveSessionId();
       const atoms = server.getAtoms(options.sessionId);
-      const hypothesis = resolveSgtHypothesis(atoms, args.target, sessionId);
+      const hypothesis = resolveSgtHypothesis(atoms, target, sessionId);
       const refusal = expandRefusal(hypothesis);
       if (refusal) throw sgtExpandRefused(hypothesis.atomId, refusal);
       const namespace = SGT_HYPOTHESIS_ID_RE.exec(hypothesis.atomId)![1];
@@ -1999,6 +1988,115 @@ sgt.command('expand', {
         evidence,
       };
     }));
+}
+
+sgt.command('expand', {
+  description: 'Progressive disclosure for one sgt skill hypothesis: run `sgt context pack <slug>` with the original route query, print budgeted excerpts, and upsert a pending polarity-free verification scaffold (sgt:q{hash}:e:{slug}) whose evidence carries excerpt provenance. Refuses refuted/verified/superseded hypotheses BEFORE spawning sgt — settled questions cost no context. Re-expands are diff-idempotent.',
+  args: z.object({ target: z.string().describe('Hypothesis atom ID (sgt:q{hash}:h:{slug}) or bare skill slug') }),
+  options: z.object({
+    budget: z.coerce.number().default(1200).describe('sgt context token budget'),
+    windows: z.coerce.number().optional().describe('Excerpt windows per skill passed to sgt'),
+    refs: z.coerce.number().optional().describe('Maximum internal references per skill passed to sgt'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
+  }),
+  alias: { budget: 'b' },
+  output: AnyOutput,
+  examples: [
+    { args: { target: 'k8s-manifest-generator' }, description: 'Disclose budgeted excerpts for a routed skill hypothesis' },
+    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 1200 }), description: 'Disclose under an explicit context budget' },
+    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 600, windows: 3 }), description: 'Tighter budget, more excerpt windows' },
+  ],
+  run({ args, options }) {
+    return performSgtExpand(args.target, options);
+  },
+});
+
+sgt.command('run', {
+  description: 'One-shot interleaving: `sgt route` + `sgt advise` + `sgt expand <top advised hypothesis>` collapsed into a single invocation — one round-trip instead of three. Optionally also expands the runner-up when its advise score is within --gap of the top (confidence-gap-gated second disclosure). Judge and trace remain explicit follow-ups: verdicts are yours, not the bridge\'s.',
+  args: z.object({ query: z.string().describe('Goal/query routed through the sgt skill ontology') }),
+  options: z.object({
+    budget: z.coerce.number().default(1200).describe('sgt context token budget per expand'),
+    routeBudget: z.coerce.number().optional().describe('sgt token budget passed to route plan'),
+    limit: z.coerce.number().optional().describe('Max skills requested from sgt'),
+    facet: z.string().optional().describe('Comma-separated facet pins DIM:PATH passed to sgt'),
+    confidence: z.coerce.number().optional().describe('Premise confidence (0-1 or 0-100, default 0.95)'),
+    gap: z.coerce.number().default(0).describe('Also expand the #2 advised hypothesis when its score is within this fraction of #1 (0 = top-1 only, e.g. 0.15)'),
+    windows: z.coerce.number().optional().describe('Excerpt windows per skill passed to sgt'),
+    refs: z.coerce.number().optional().describe('Maximum internal references per skill passed to sgt'),
+    adviseLimit: z.coerce.number().default(8).describe('Maximum advice entries returned'),
+    sessionId: z.string().optional().describe('Target session (default active)'),
+    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
+  }),
+  alias: { budget: 'b', confidence: 'c' },
+  output: AnyOutput,
+  examples: [
+    { args: { query: 'deploy kubernetes service' }, description: 'Route, advise, and disclose the top hypothesis in one call' },
+    { args: { query: 'deploy kubernetes service' }, options: exampleOptions({ gap: 0.15 }), description: 'Also disclose the runner-up when advise scores it within 15% of the top' },
+  ],
+  async run({ args, options }) {
+    // Step 1: route (same contract as `aot sgt route`).
+    const routeResult = await runSgtRoutePlan(args.query, {
+      budget: options.routeBudget,
+      limit: options.limit,
+      facets: options.facet ? parseDeps(options.facet) : undefined,
+    });
+    if (!routeResult.ok) throw sgtUnavailable(routeResult.error);
+    const route = withStateLock(() => withDomainErrors(() => materializeRoutePlan(routeResult.plan, args.query, {
+      sessionId: options.sessionId,
+      confidence: options.confidence,
+      trace: options.trace,
+    })));
+
+    // Step 2: advise (pure state read, zero subprocess).
+    const { advice, sessionId } = withDomainErrors(() => {
+      const server = makeServer();
+      const sid = options.sessionId ?? server.getActiveSessionId();
+      const candidates = adviseCandidates(server.getAtoms(options.sessionId));
+      return {
+        sessionId: sid,
+        advice: candidates.slice(0, Math.max(0, options.adviseLimit)).map((candidate, index) => ({
+          rank: index + 1,
+          action: candidate.action,
+          command: candidate.command,
+          ...(candidate.argChoices ? { argChoices: candidate.argChoices } : {}),
+          why: candidate.why,
+          atomId: candidate.atomId,
+          slug: candidate.slug,
+          score: candidate.score,
+          tier: candidate.tier,
+        })),
+      };
+    });
+
+    // Step 3: expand the top advised hypothesis; gap-gate the runner-up.
+    const expandTier = advice.filter(entry => entry.action === 'expand');
+    const targets = expandTier.slice(0, 1);
+    if (options.gap > 0 && expandTier.length > 1
+      && expandTier[1].score >= expandTier[0].score * (1 - options.gap)) {
+      targets.push(expandTier[1]);
+    }
+    const expanded: Array<Record<string, unknown>> = [];
+    for (const entry of targets) {
+      expanded.push(await performSgtExpand(entry.atomId, {
+        budget: options.budget,
+        windows: options.windows,
+        refs: options.refs,
+        sessionId: options.sessionId,
+        trace: options.trace,
+      }));
+    }
+
+    return {
+      status: 'success',
+      sessionId,
+      query: args.query,
+      route,
+      advise: advice,
+      expandedCount: expanded.length,
+      expanded,
+      ...(expandTier.length === 0 ? { note: 'No expandable hypotheses advised — judge or refine instead (see advise).' } : {}),
+    };
   },
 });
 

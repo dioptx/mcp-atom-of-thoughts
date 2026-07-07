@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added — `aot sgt run` one-shot interleaving (latency optimization)
+
+- **`aot sgt run <query> [--gap 0.15] [--budget N]`** — collapses `route` + `advise` + `expand <top advised hypothesis>` into a single invocation (one agent round-trip instead of three). `--gap` adds confidence-gap-gated second disclosure: the runner-up hypothesis is also expanded only when its advise score is within the gap fraction of the top (the code-level counterpart of the INT4 recommendation banked by the integration A/B loop; default 0 = top-1 only). Composition, not a fourth epistemic pathway: it reuses `materializeRoutePlan` + `adviseCandidates` + the extracted `performSgtExpand`, so refusal matrix, idempotency, and error taxonomy are byte-identical to the separate commands (pinned by `tests/sgt-run.test.ts`). Judge and trace stay explicit follow-ups — verdicts are yours, not the bridge's.
+
 ### Added — sgt skill-graph bridge round 3 (`aot sgt trace`, analyze awareness, verification hardening)
 
 Completes the `aot sgt` bridge to the external skill-graph-traversal CLI (rounds 1-2 shipped `route`/`judge`/`expand`/`advise`; spec: `docs/sgt-integration-spec.md`, now Status: implemented v1).
