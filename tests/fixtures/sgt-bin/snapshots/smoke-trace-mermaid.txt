@@ -1,0 +1,18 @@
+graph TD
+  sgt:q0312c9d5:p["[P] sgt:q0312c9d5:p (95%) deploy kubernetes service"]
+  sgt:q0312c9d5:r:domain["[R] sgt:q0312c9d5:r:domain (83%) domain: Infrastructure/DevOps/Deploymen…"]
+  sgt:q0312c9d5:r:capability["[R] sgt:q0312c9d5:r:capability (83%) capability: Operate/Manage/Run (412->18…"]
+  sgt:q0312c9d5:h:kubernetes-deployment-creator--claude-specific--5eda8a52["[H] sgt:q0312c9d5:h:kubernetes-deployment-creator--claude-specific--5eda8a52 (70%) skill kubernetes-deployment-creator--cl… [sgt:kubernetes-deployment-creator--claude-specific--5eda8a52]"]
+  sgt:q0312c9d5:h:k8s-manifest-generator["[H] sgt:q0312c9d5:h:k8s-manifest-generator ✓ (66%) skill k8s-manifest-generator is relevan… [sgt:k8s-manifest-generator]"]
+  sgt:q0312c9d5:h:sparse-notes-skill["[H] sgt:q0312c9d5:h:sparse-notes-skill (60%) skill sparse-notes-skill is relevant to… [sgt:sparse-notes-skill]"]
+  sgt:q0312c9d5:e:k8s-manifest-generator["[V] sgt:q0312c9d5:e:k8s-manifest-generator (70%) sgt expand: k8s-manifest-generator (2 e…"]
+  sgt:q0312c9d5:j:k8s-manifest-generator:supports["[V] sgt:q0312c9d5:j:k8s-manifest-generator:supports ✓ (85%) sgt judgement (supports): skill k8s-man…"]
+  sgt:q0312c9d5:p --> sgt:q0312c9d5:r:domain
+  sgt:q0312c9d5:r:domain --> sgt:q0312c9d5:r:capability
+  sgt:q0312c9d5:r:capability --> sgt:q0312c9d5:h:kubernetes-deployment-creator--claude-specific--5eda8a52
+  sgt:q0312c9d5:r:capability --> sgt:q0312c9d5:h:k8s-manifest-generator
+  sgt:q0312c9d5:r:capability --> sgt:q0312c9d5:h:sparse-notes-skill
+  sgt:q0312c9d5:h:k8s-manifest-generator --> sgt:q0312c9d5:e:k8s-manifest-generator
+  sgt:q0312c9d5:h:k8s-manifest-generator --> sgt:q0312c9d5:j:k8s-manifest-generator:supports
+  classDef verified stroke:#2e7d32,stroke-width:2px;
+  class sgt:q0312c9d5:h:k8s-manifest-generator,sgt:q0312c9d5:j:k8s-manifest-generator:supports verified;

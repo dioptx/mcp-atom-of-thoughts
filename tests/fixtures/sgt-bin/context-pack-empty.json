@@ -1,0 +1,21 @@
+{
+  "budget": {
+    "requestedTokens": 1200,
+    "estimatedTokens": 0,
+    "policy": "excerpt windows only; full source omitted"
+  },
+  "packets": [
+    {
+      "skill": {
+        "slug": "k8s-manifest-generator",
+        "name": "k8s-manifest-generator",
+        "title": "Create production-ready Kubernetes manifests",
+        "storedAt": "store/k8s-manifest-generator"
+      },
+      "excerpts": [],
+      "references": []
+    }
+  ],
+  "unresolvedSlugs": [],
+  "omittedDueToBudget": []
+}

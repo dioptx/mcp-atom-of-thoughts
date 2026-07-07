@@ -28,6 +28,9 @@ export function exportGraph(
         polarity: atom.polarity,
         isRefuted: atom.isRefuted || undefined,
         evidence: atom.evidence,
+        // Conditional spread, not a bare assignment: payloads without skill
+        // atoms must not even carry a `skillRef` key (byte-identical exports).
+        ...(atom.skillRef ? { skillRef: atom.skillRef } : {}),
       };
     });
 
@@ -77,6 +80,7 @@ export function graphDataToAtoms(graph: GraphData): { atoms: Record<string, Atom
       polarity: node.polarity,
       isRefuted: node.isRefuted === true ? true : undefined,
       evidence: node.evidence,
+      skillRef: node.skillRef,
     };
     atomOrder.push(node.id);
   }

@@ -57,9 +57,20 @@ function dotLabelEscape(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+/**
+ * sgt bridge provenance tag (round 3): ` [sgt:{slug}]` for atoms carrying a
+ * skillRef, '' otherwise. Appended AFTER content truncation so truncation
+ * boundaries are unchanged and non-skill output stays byte-identical.
+ * Tagging tree/mermaid/dot rides on nodeLabel(); renderCanvas is NOT on the
+ * nodeLabel path and tags its `text` field independently.
+ */
+function sgtTagSuffix(node: GraphNode): string {
+  return node.skillRef?.slug ? ` [sgt:${node.skillRef.slug}]` : '';
+}
+
 function nodeLabel(node: GraphNode, max = 60): string {
   const verified = node.isVerified ? ' ✓' : '';
-  return `[${TYPE_LETTER[node.type] ?? '?'}] ${node.id}${verified} (${Math.round(node.confidence * 100)}%) ${truncate(node.content, max)}`;
+  return `[${TYPE_LETTER[node.type] ?? '?'}] ${node.id}${verified} (${Math.round(node.confidence * 100)}%) ${truncate(node.content, max)}${sgtTagSuffix(node)}`;
 }
 
 export function renderTree(graph: GraphData): string {
@@ -167,7 +178,9 @@ export function renderCanvas(graph: GraphData): string {
     return {
       id: node.id,
       type: 'text',
-      text: `**${node.id}** (${node.type}, ${Math.round(node.confidence * 100)}%${node.isVerified ? ', verified' : ''})\n\n${node.content}`,
+      // Content untouched; skill atoms get a final `sgt:{slug}` line so the
+      // canvas card carries the same provenance as the nodeLabel formats.
+      text: `**${node.id}** (${node.type}, ${Math.round(node.confidence * 100)}%${node.isVerified ? ', verified' : ''})\n\n${node.content}${node.skillRef?.slug ? `\nsgt:${node.skillRef.slug}` : ''}`,
       x: depth * COLUMN_WIDTH,
       y: row * ROW_HEIGHT,
       width: NODE_WIDTH,

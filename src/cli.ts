@@ -8,13 +8,35 @@ import { Cli, Errors, z } from 'incur';
 import { AtomOfThoughtsServer, type AtomServerSnapshot } from './atom-server.js';
 import { AtomOfThoughtsLightServer } from './atom-light-server.js';
 import { exportGraph, graphDataToAtoms } from './graph-export.js';
-import type { CausalLink, GraphData } from './types.js';
+import type { AtomData, CausalLink, GraphData } from './types.js';
 import { getAllTools } from './tools.js';
 import { brCommandAvailable, summarizeBrSync, syncGraphToBr, type BrSyncOptions } from './integrations/br.js';
 import { bvCommandAvailable, runBvRobot, summarizeBvRobot, type BvRobotCommand } from './integrations/bv.js';
 import { buildDagAtoms, buildDagGraph, collectGitDagContext, normalizeDag, resolveDagSession, summarizeDag, syncDagToLinear } from './integrations/dag.js';
 import { pexCommandAvailable, runPexBundle } from './integrations/pex.js';
 import { errorToPayload } from './integrations/shell-json.js';
+import {
+  SGT_HYPOTHESIS_ID_RE,
+  SUPERSEDED_CONFIDENCE_CAP,
+  SUPERSEDED_PREFIX,
+  packEvidenceRefs,
+  planRouteAtoms,
+  runSgtContextPack,
+  runSgtRoutePlan,
+  sgtIds,
+  skillRefEquals,
+  type RoutePlan,
+  type SgtBridgeError,
+} from './sgt-bridge.js';
+import {
+  EXPAND_SCAFFOLD_CONFIDENCE,
+  adviseCandidates,
+  advisePendingIssues,
+  expandRefusal,
+  isSuperseded,
+  resolveSgtHypothesis,
+  type ExpandRefusalReason,
+} from './sgt-epistemics.js';
 import { analyzeGraph } from './graph-analysis.js';
 import { analyzeLoops, analyzeSystems, computeLeverage, enumerateLoops, simulate } from './systems-analysis.js';
 import { renderGraph } from './graph-render.js';
@@ -1165,33 +1187,56 @@ function atomsForInspection(options: { sessionId?: string; from?: string }): { a
   return { atoms: server.getAtoms(options.sessionId), atomOrder: server.getAtomOrder(options.sessionId), causalLinks: server.getCausalLinks(options.sessionId), source: `session:${sessionId}` };
 }
 
+/**
+ * Issue codes that are INFORMATIONAL: always present in the analyze `issues`
+ * array, but filtered out of gateIssues when --failOn is absent (the default
+ * gate fails on every other issue). Opt back in with an explicit
+ * `--failOn advise_pending`. The gate payload reports the exemption
+ * (`gate.exempt`) so `failOn: 'all'` is never a silent lie.
+ */
+const GATE_EXEMPT_ISSUE_CODES = new Set(['advise_pending']);
+
 cli.command('analyze', {
-  description: 'Analyze the atom graph: cycles, dangling deps, topological order, effective (propagated) confidence, weakest links, contradictions, refuted atoms, critical path, and lint issues. Gate mode for CI: exit 1 on issues.',
+  description: 'Analyze the atom graph: cycles, dangling deps, topological order, effective (propagated) confidence, weakest links, contradictions, refuted atoms, critical path, and lint issues. Also lints stale sgt skill hypotheses (advise_pending: awaits expand/judge) — informational only, derived purely from session state with zero subprocess. Gate mode for CI: exit 1 on issues; advise_pending is exempt from the default gate (gate.exempt) unless selected via --failOn advise_pending.',
   options: z.object({
     sessionId: z.string().optional().describe('Session to analyze (default active)'),
     from: z.string().optional().describe('Analyze a graph file (aot export output or GraphData JSON) instead of session state; @file, path, or - for stdin'),
     weakThreshold: z.coerce.number().optional().describe('Effective-confidence threshold for weak_support issues (default 0.5)'),
     gate: z.boolean().optional().describe('Exit with code 1 when lint issues are found (CI gate mode)'),
-    failOn: z.string().optional().describe('Comma-separated issue codes that trigger gate failure (default: all)'),
+    failOn: z.string().optional().describe('Comma-separated issue codes that trigger gate failure (default: all non-exempt; advise_pending is exempt unless listed here)'),
   }),
   output: AnyOutput,
   examples: [
     { description: 'Analyze the active session' },
     { options: exampleOptions({ weakThreshold: 0.7 }), description: 'Stricter weak-support lint' },
     { options: exampleOptions({ gate: true, failOn: 'cycle,refuted_support,dangling_dependency' }), description: 'CI gate: fail only on structural breakage' },
+    { options: exampleOptions({ gate: true, failOn: 'advise_pending' }), description: 'Opt the informational sgt advise_pending lint into gate failure' },
   ],
   run({ options }) {
     const { atoms, source } = atomsForInspection(options);
     const analysis = analyzeGraph(atoms, { weakThreshold: options.weakThreshold });
+    // advise_pending rides AFTER the graph-analysis issues (graph-analysis
+    // stays sgt-free); it is always reported, only the gate exempts it.
+    const issues = [...analysis.issues, ...advisePendingIssues(atoms)];
     const failCodes = options.failOn ? new Set(parseDeps(options.failOn)) : null;
-    const gateIssues = failCodes ? analysis.issues.filter(issue => failCodes.has(issue.code)) : analysis.issues;
+    const gateIssues = failCodes
+      ? issues.filter(issue => failCodes.has(issue.code))
+      : issues.filter(issue => !GATE_EXEMPT_ISSUE_CODES.has(issue.code));
     if (options.gate && gateIssues.length > 0) {
       process.exitCode = 1;
     }
     return {
       source,
-      ...(options.gate ? { gate: { failed: gateIssues.length > 0, failingIssueCount: gateIssues.length, failOn: failCodes ? [...failCodes] : 'all' } } : {}),
+      ...(options.gate ? {
+        gate: {
+          failed: gateIssues.length > 0,
+          failingIssueCount: gateIssues.length,
+          failOn: failCodes ? [...failCodes] : 'all',
+          ...(failCodes ? {} : { exempt: [...GATE_EXEMPT_ISSUE_CODES] }),
+        },
+      } : {}),
       ...analysis,
+      issues,
     };
   },
 });
@@ -1259,15 +1304,57 @@ cli.command('import', {
   },
 });
 
+/**
+ * Shared render body for `aot graph` and `aot sgt trace`: SAME exportGraph ->
+ * renderGraph path, so the two commands are byte-identical on stdout for the
+ * same session/format (skill atoms are ordinary atoms, spec I2 — `aot graph`
+ * shows the sgt tags too). Only the stderr hint label differs.
+ */
+type GraphRenderOptions = {
+  graphFormat: 'tree' | 'mermaid' | 'dot' | 'canvas';
+  sessionId?: string;
+  from?: string;
+  title?: string;
+  out?: string;
+};
+
+function runGraphRender(commandLabel: string, options: GraphRenderOptions, formatExplicit: boolean | undefined): unknown {
+  let graph: GraphData;
+  let sourceLabel: string;
+  if (options.from) {
+    const { atoms, atomOrder, causalLinks, source } = atomsForInspection({ from: options.from });
+    graph = exportGraph(atoms, atomOrder, options.title, causalLinks);
+    sourceLabel = source;
+  } else {
+    const current = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
+    graph = current.graph;
+    sourceLabel = `session:${current.sessionId}`;
+  }
+  const rendered = renderGraph(graph, options.graphFormat);
+  if (options.out) {
+    fs.writeFileSync(options.out, rendered.endsWith('\n') ? rendered : `${rendered}\n`);
+    return { source: sourceLabel, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
+  }
+  // Structured envelope only on explicit request (--format json / --json /
+  // --format toon ...); by default the render goes to stdout raw so
+  // tree/mermaid/dot output is terminal- and doc-pasteable, with metadata
+  // on stderr.
+  if (formatExplicit) return { source: sourceLabel, format: options.graphFormat, rendered };
+  process.stderr.write(`${commandLabel}: ${sourceLabel} graphFormat=${options.graphFormat}\n`);
+  return rendered;
+}
+
+const GraphRenderOptionsSchema = z.object({
+  graphFormat: z.enum(['tree', 'mermaid', 'dot', 'canvas']).default('tree').describe('Render format'),
+  sessionId: z.string().optional().describe('Session to render (default active)'),
+  from: z.string().optional().describe('Render a graph file (aot export output or GraphData JSON) instead of session state'),
+  title: z.string().optional().describe('Graph title'),
+  out: z.string().optional().describe('Write rendered output to a file (e.g. plan.canvas) instead of returning it inline'),
+});
+
 cli.command('graph', {
   description: 'Render the atom graph as an ASCII tree, mermaid, graphviz dot, or Obsidian JSON Canvas.',
-  options: z.object({
-    graphFormat: z.enum(['tree', 'mermaid', 'dot', 'canvas']).default('tree').describe('Render format'),
-    sessionId: z.string().optional().describe('Session to render (default active)'),
-    from: z.string().optional().describe('Render a graph file (aot export output or GraphData JSON) instead of session state'),
-    title: z.string().optional().describe('Graph title'),
-    out: z.string().optional().describe('Write rendered output to a file (e.g. plan.canvas) instead of returning it inline'),
-  }),
+  options: GraphRenderOptionsSchema,
   // Union: raw rendered string by default, structured payload with --format/--out.
   output: z.any(),
   examples: [
@@ -1275,29 +1362,7 @@ cli.command('graph', {
     { options: { graphFormat: 'canvas', out: 'reasoning.canvas' }, description: 'Obsidian canvas file' },
   ],
   run({ options, formatExplicit }) {
-    let graph: GraphData;
-    let sourceLabel: string;
-    if (options.from) {
-      const { atoms, atomOrder, causalLinks, source } = atomsForInspection({ from: options.from });
-      graph = exportGraph(atoms, atomOrder, options.title, causalLinks);
-      sourceLabel = source;
-    } else {
-      const current = exportCurrentGraph({ sessionId: options.sessionId, title: options.title });
-      graph = current.graph;
-      sourceLabel = `session:${current.sessionId}`;
-    }
-    const rendered = renderGraph(graph, options.graphFormat);
-    if (options.out) {
-      fs.writeFileSync(options.out, rendered.endsWith('\n') ? rendered : `${rendered}\n`);
-      return { source: sourceLabel, format: options.graphFormat, out: path.resolve(options.out), bytes: Buffer.byteLength(rendered, 'utf8') };
-    }
-    // Structured envelope only on explicit request (--format json / --json /
-    // --format toon ...); by default the render goes to stdout raw so
-    // tree/mermaid/dot output is terminal- and doc-pasteable, with metadata
-    // on stderr.
-    if (formatExplicit) return { source: sourceLabel, format: options.graphFormat, rendered };
-    process.stderr.write(`aot graph: ${sourceLabel} graphFormat=${options.graphFormat}\n`);
-    return rendered;
+    return runGraphRender('aot graph', options, formatExplicit);
   },
 });
 
@@ -1523,6 +1588,469 @@ sys.command('lint', {
 });
 
 cli.command(sys);
+
+// ---------------------------------------------------------------------------
+// sgt bridge layer: `aot sgt route|judge`. Loose coupling to the external
+// skill-graph-traversal binary (SGT_BIN, default "sgt"): JSON in/out via
+// subprocess, structured SGT_UNAVAILABLE on any bridge failure, and no state
+// mutation unless the plan materializes fully inside one state-lock scope.
+// ---------------------------------------------------------------------------
+
+function sgtUnavailable(error: SgtBridgeError): Errors.IncurError {
+  return new Errors.IncurError({
+    code: 'SGT_UNAVAILABLE',
+    message: `sgt bridge failed (${error.detail}): ${error.message}`,
+    hint: 'Install sgt or point SGT_BIN at the binary. Session state was not modified.',
+  });
+}
+
+/** processAtom reports failures as payloads, not throws — surface them. */
+function assertProcessAtomOk(result: { content: Array<{ type: string; text: string }> }): void {
+  const parsed = parseToolText(result);
+  if (parsed && typeof parsed === 'object' && 'error' in (parsed as Record<string, unknown>)) {
+    throw new Error(String((parsed as Record<string, unknown>).error));
+  }
+}
+
+/**
+ * Materialize a route plan into the session. Idempotency contract:
+ * - New atoms are created via processAtom; EXISTING atoms are only ever
+ *   patched via updateAtom (processAtom overwrites wholesale and would wipe
+ *   polarity/evidence/skillRef/isRefuted).
+ * - Verified or refuted atoms are never rewritten (judge verdicts survive
+ *   re-routes; spec I3 seed).
+ * - sgt-namespace atoms absent from the new plan get the superseded prefix
+ *   exactly once (check-before-prefix) and confidence min(prev, 0.35);
+ *   isVerified/isRefuted are never touched. A later re-route that includes
+ *   them again restores content/confidence via the normal update path unless
+ *   they are verified/refuted.
+ * - planChanged derives from the materialization diff: created + updated +
+ *   superseded > 0. No plan hash is persisted.
+ */
+function materializeRoutePlan(plan: RoutePlan, query: string, options: { sessionId?: string; confidence?: number; trace?: boolean }): Record<string, unknown> {
+  const server = makeServer();
+  const sessionId = options.sessionId ?? server.getActiveSessionId();
+  const materialization = planRouteAtoms(query, plan, normalizeConfidence(options.confidence) ?? 0.95);
+  const desiredIds = new Set(materialization.atoms.map(atom => atom.atomId));
+
+  let existingAtoms: Record<string, AtomData> = {};
+  try {
+    existingAtoms = server.getAtoms(sessionId);
+  } catch { /* explicit unknown session: processAtom auto-creates it below */ }
+
+  const created: string[] = [];
+  const updated: string[] = [];
+  const superseded: string[] = [];
+  const preserved: string[] = [];
+
+  withoutTrace(options.trace, () => {
+    for (const planned of materialization.atoms) {
+      const existing = existingAtoms[planned.atomId];
+      if (!existing) {
+        assertProcessAtomOk(server.processAtom({
+          atomId: planned.atomId,
+          atomType: planned.atomType,
+          content: planned.content,
+          dependencies: planned.dependencies,
+          confidence: planned.confidence,
+          isVerified: false,
+          ...(planned.skillRef ? { skillRef: planned.skillRef } : {}),
+          sessionId,
+        }));
+        created.push(planned.atomId);
+        existingAtoms = server.getAtoms(sessionId);
+        continue;
+      }
+      // Epistemic protection: judged atoms keep their verdicts — a re-route
+      // never overwrites content/confidence of verified or refuted atoms.
+      if (existing.isRefuted || existing.isVerified) {
+        preserved.push(planned.atomId);
+        continue;
+      }
+      const changed = existing.content !== planned.content
+        || existing.confidence !== planned.confidence
+        || existing.dependencies.join(' ') !== planned.dependencies.join(' ')
+        || !skillRefEquals(existing.skillRef, planned.skillRef);
+      if (!changed) continue;
+      server.updateAtom(planned.atomId, {
+        content: planned.content,
+        confidence: planned.confidence,
+        dependencies: planned.dependencies,
+        ...(planned.skillRef ? { skillRef: planned.skillRef } : {}),
+      }, sessionId);
+      updated.push(planned.atomId);
+    }
+
+    // Supersede plan drop-outs. Judge verdict atoms (j:) are never superseded.
+    // Expand scaffolds (e:{slug}) are progressive-disclosure records, not plan
+    // members — planRouteAtoms never emits them — so they stay live while
+    // their parent hypothesis is in the new plan and are superseded only when
+    // the hypothesis itself is dropped.
+    for (const [atomId, atom] of Object.entries(server.getAtoms(sessionId))) {
+      if (!atomId.startsWith(materialization.namespace)) continue;
+      const localId = atomId.slice(materialization.namespace.length);
+      if (localId.startsWith('j:')) continue;
+      if (localId.startsWith('e:') && desiredIds.has(`${materialization.namespace}h:${localId.slice(2)}`)) continue;
+      if (desiredIds.has(atomId)) continue;
+      if (atom.content.startsWith(SUPERSEDED_PREFIX)) continue;
+      server.updateAtom(atomId, {
+        content: `${SUPERSEDED_PREFIX}${atom.content}`,
+        confidence: Math.min(atom.confidence, SUPERSEDED_CONFIDENCE_CAP),
+      }, sessionId);
+      superseded.push(atomId);
+    }
+  });
+
+  saveServer(server);
+  return {
+    status: 'success',
+    sessionId,
+    query,
+    queryHash: materialization.queryHash,
+    namespace: materialization.namespace,
+    premiseId: materialization.premiseId,
+    decisionSteps: plan.decisionTree.length,
+    skillCount: plan.skills.length,
+    created: created.length,
+    updated: updated.length,
+    superseded: superseded.length,
+    planChanged: created.length + updated.length + superseded.length > 0,
+    ...(created.length > 0 ? { createdIds: created } : {}),
+    ...(updated.length > 0 ? { updatedIds: updated } : {}),
+    ...(superseded.length > 0 ? { supersededIds: superseded } : {}),
+    ...(preserved.length > 0 ? { preservedIds: preserved } : {}),
+  };
+}
+
+const sgt = Cli.create('sgt', {
+  description: 'Bridge to the sgt skill-graph-traversal CLI: materialize deterministic route plans as premise -> reasoning -> skill-hypothesis atoms with skillRef provenance, and judge hypotheses with polarity verification atoms. Requires the sgt binary (SGT_BIN env, default "sgt"); bridge failures error with code SGT_UNAVAILABLE and leave session state untouched.',
+});
+
+sgt.command('route', {
+  description: 'Run `sgt route plan --format json` and materialize the plan in the session: premise sgt:q{hash}:p, one reasoning atom per decision-tree axis (chained), one hypothesis per skill. Idempotent per (session, query): re-routes update in place, plan drop-outs get a superseded prefix, judged atoms are never overwritten.',
+  args: z.object({ query: z.string().describe('Goal/query routed through the sgt skill ontology') }),
+  options: z.object({
+    budget: z.coerce.number().optional().describe('sgt token budget passed to route plan'),
+    limit: z.coerce.number().optional().describe('Max skills requested from sgt'),
+    facet: z.string().optional().describe('Comma-separated facet pins DIM:PATH passed to sgt'),
+    confidence: z.coerce.number().optional().describe('Premise confidence (0-1 or 0-100, default 0.95)'),
+    sessionId: z.string().optional().describe('Target session (default active)'),
+    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
+  }),
+  alias: { confidence: 'c' },
+  output: AnyOutput,
+  examples: [
+    { args: { query: 'deploy kubernetes service' }, description: 'Route a goal and seed skill hypotheses' },
+    { args: { query: 'deploy kubernetes service' }, options: exampleOptions({ budget: 1200 }), description: 'Route under an explicit sgt token budget' },
+    { args: { query: 'deploy kubernetes service' }, options: exampleOptions({ limit: 5, confidence: 0.9 }), description: 'Cap skills and set premise confidence' },
+  ],
+  async run({ args, options }) {
+    const result = await runSgtRoutePlan(args.query, {
+      budget: options.budget,
+      limit: options.limit,
+      facets: options.facet ? parseDeps(options.facet) : undefined,
+    });
+    if (!result.ok) throw sgtUnavailable(result.error);
+    // Single state-lock scope: a concurrent invocation can never observe a
+    // half-materialized plan.
+    return withStateLock(() => withDomainErrors(() => materializeRoutePlan(result.plan, args.query, options)));
+  },
+});
+
+sgt.command('judge', {
+  description: 'Record a supports/refutes verdict on an sgt skill hypothesis as a polarity verification atom (sgt:q{hash}:j:{slug}:{polarity}) using standard verifyAtom propagation: --refutes marks the hypothesis refuted, --supports verifies it. Re-judging the same polarity updates in place; the opposite polarity creates a sibling atom whose contradiction surfaces in `aot analyze`.',
+  args: z.object({ target: z.string().describe('Hypothesis atom ID (sgt:q{hash}:h:{slug}) or bare skill slug') }),
+  options: z.object({
+    supports: z.boolean().optional().describe('Evidence SUPPORTS the skill hypothesis'),
+    refutes: z.boolean().optional().describe('Evidence REFUTES the skill hypothesis'),
+    confidence: z.coerce.number().optional().describe('Verification confidence (0-1 or 0-100, default 0.85)'),
+    evidence: z.string().optional().describe('Comma-separated evidence refs (paths, URLs)'),
+    pending: z.boolean().optional().describe('Create an unverified verification scaffold instead of propagating immediately'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
+  }),
+  alias: { confidence: 'c' },
+  output: AnyOutput,
+  examples: [
+    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ supports: true }), description: 'Confirm a routed skill was useful' },
+    { args: { target: 'noise-skill' }, options: exampleOptions({ refutes: true, evidence: 'notes/why-irrelevant.md' }), description: 'Record that a retrieved skill was noise' },
+  ],
+  run({ args, options }) {
+    if (Boolean(options.supports) === Boolean(options.refutes)) {
+      throw new Errors.IncurError({
+        code: 'MISSING_POLARITY',
+        message: 'Pass exactly one of --supports or --refutes',
+        hint: 'Example: aot sgt judge <slug> --supports=true',
+      });
+    }
+    const polarity = options.supports ? 'supports' as const : 'refutes' as const;
+    return withStateLock(() => withDomainErrors(() => {
+      const server = makeServer();
+      const sessionId = options.sessionId ?? server.getActiveSessionId();
+      const atoms = server.getAtoms(options.sessionId);
+      const hypothesis = resolveSgtHypothesis(atoms, args.target, sessionId);
+
+      // The j: atom lives in the SAME namespace as the resolved hypothesis —
+      // derived from its atom ID, never re-hashed.
+      const namespace = SGT_HYPOTHESIS_ID_RE.exec(hypothesis.atomId)![1];
+      const slug = hypothesis.skillRef!.slug;
+      const judgeId = sgtIds.judge(namespace, slug, polarity);
+      const confidence = normalizeConfidence(options.confidence) ?? 0.85;
+      const content = `sgt judgement (${polarity}): skill ${slug}`;
+      const existing = atoms[judgeId];
+
+      // Excerpt provenance on the verdict (spec §2c): at j: atom CREATION
+      // only, a live e:{slug} scaffold's evidence refs are inherited in pack
+      // emission order; explicit --evidence refs are appended after, deduped
+      // preserving first occurrence. Re-judges never re-sync from the
+      // scaffold: with --evidence omitted they leave evidence unchanged.
+      const userEvidence = options.evidence ? parseDeps(options.evidence) : undefined;
+      let evidence = userEvidence;
+      if (!existing) {
+        const scaffold = atoms[sgtIds.expand(namespace, slug)];
+        const inherited = scaffold !== undefined && !isSuperseded(scaffold) ? scaffold.evidence ?? [] : [];
+        if (inherited.length > 0) {
+          evidence = [...new Set([...inherited, ...(userEvidence ?? [])])];
+        }
+      }
+
+      withoutTrace(options.trace, () => {
+        if (existing) {
+          // Idempotent re-judge: patch the existing verdict atom in place.
+          server.updateAtom(judgeId, {
+            content,
+            confidence,
+            dependencies: [hypothesis!.atomId],
+            polarity,
+            ...(evidence !== undefined ? { evidence } : {}),
+            isVerified: !options.pending,
+          }, options.sessionId);
+        } else {
+          assertProcessAtomOk(server.processAtom({
+            atomId: judgeId,
+            atomType: 'verification',
+            content,
+            dependencies: [hypothesis!.atomId],
+            confidence,
+            isVerified: !options.pending,
+            polarity,
+            ...(evidence !== undefined ? { evidence } : {}),
+            sessionId,
+          }));
+        }
+      });
+
+      const after = server.getAtoms(options.sessionId)[hypothesis.atomId];
+      saveServer(server);
+      return {
+        status: 'success',
+        sessionId,
+        atomId: judgeId,
+        hypothesisId: hypothesis.atomId,
+        slug,
+        polarity,
+        pending: Boolean(options.pending),
+        confidence,
+        rejudged: Boolean(existing),
+        hypothesis: {
+          isVerified: after.isVerified,
+          confidence: after.confidence,
+          ...(after.isRefuted ? { isRefuted: true } : {}),
+        },
+      };
+    }));
+  },
+});
+
+function sgtExpandRefused(atomId: string, reason: ExpandRefusalReason): Errors.IncurError {
+  return new Errors.IncurError({
+    code: 'SGT_EXPAND_REFUSED',
+    message: `refusing to expand ${atomId}: hypothesis is ${reason} — settled questions cost no context`,
+    hint: reason === 'superseded'
+      ? 'Re-route so the hypothesis is back in the plan, then expand it.'
+      : 'Judged hypotheses are settled; expand an unjudged hypothesis instead (see `aot sgt advise`).',
+  });
+}
+
+sgt.command('expand', {
+  description: 'Progressive disclosure for one sgt skill hypothesis: run `sgt context pack <slug>` with the original route query, print budgeted excerpts, and upsert a pending polarity-free verification scaffold (sgt:q{hash}:e:{slug}) whose evidence carries excerpt provenance. Refuses refuted/verified/superseded hypotheses BEFORE spawning sgt — settled questions cost no context. Re-expands are diff-idempotent.',
+  args: z.object({ target: z.string().describe('Hypothesis atom ID (sgt:q{hash}:h:{slug}) or bare skill slug') }),
+  options: z.object({
+    budget: z.coerce.number().default(1200).describe('sgt context token budget'),
+    windows: z.coerce.number().optional().describe('Excerpt windows per skill passed to sgt'),
+    refs: z.coerce.number().optional().describe('Maximum internal references per skill passed to sgt'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+    trace: z.boolean().optional().describe('Show the upstream formatted atom stderr trace'),
+  }),
+  alias: { budget: 'b' },
+  output: AnyOutput,
+  examples: [
+    { args: { target: 'k8s-manifest-generator' }, description: 'Disclose budgeted excerpts for a routed skill hypothesis' },
+    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 1200 }), description: 'Disclose under an explicit context budget' },
+    { args: { target: 'k8s-manifest-generator' }, options: exampleOptions({ budget: 600, windows: 3 }), description: 'Tighter budget, more excerpt windows' },
+  ],
+  async run({ args, options }) {
+    // Phase 1 (read-only, NO subprocess yet): resolve the hypothesis and gate
+    // on the refusal matrix. A refused expand must never spawn sgt.
+    const preflight = withDomainErrors(() => {
+      const server = makeServer();
+      const sessionId = options.sessionId ?? server.getActiveSessionId();
+      const atoms = server.getAtoms(options.sessionId);
+      const hypothesis = resolveSgtHypothesis(atoms, args.target, sessionId);
+      const refusal = expandRefusal(hypothesis);
+      if (refusal) throw sgtExpandRefused(hypothesis.atomId, refusal);
+      const namespace = SGT_HYPOTHESIS_ID_RE.exec(hypothesis.atomId)![1];
+      // Recover the original route query from the namespace premise atom.
+      const premise = atoms[sgtIds.premise(namespace)];
+      const premiseContent = premise?.content ?? hypothesis.skillRef!.slug;
+      const query = premiseContent.startsWith(SUPERSEDED_PREFIX) ? premiseContent.slice(SUPERSEDED_PREFIX.length) : premiseContent;
+      return { sessionId, hypothesisId: hypothesis.atomId, slug: hypothesis.skillRef!.slug, namespace, query };
+    });
+
+    // Phase 2: subprocess (no state lock held). Any bridge failure leaves
+    // session state byte-identical because nothing has been written yet.
+    const packResult = await runSgtContextPack(preflight.slug, {
+      query: preflight.query,
+      budget: options.budget,
+      windows: options.windows,
+      refs: options.refs,
+    });
+    if (!packResult.ok) throw sgtUnavailable(packResult.error);
+    const pack = packResult.pack;
+    const packet = pack.packets.find(p => p.skill.slug === preflight.slug);
+    if (!packet || pack.unresolvedSlugs.includes(preflight.slug)) {
+      throw new Errors.IncurError({
+        code: 'SGT_SLUG_UNRESOLVED',
+        message: `sgt context pack did not resolve slug "${preflight.slug}"`,
+        hint: 'The skill may have left the ontology; re-run `aot sgt route` to refresh hypotheses. Session state was not modified.',
+      });
+    }
+
+    const evidence = packEvidenceRefs(preflight.slug, packet);
+    const scaffoldId = sgtIds.expand(preflight.namespace, preflight.slug);
+    const content = `sgt expand: ${preflight.slug} (${packet.excerpts.length} excerpts, budget ${options.budget})`;
+
+    // Phase 3: single state-lock scope; re-resolve so a concurrent judge or
+    // re-route between phases can never be clobbered.
+    return withStateLock(() => withDomainErrors(() => {
+      const server = makeServer();
+      const atoms = server.getAtoms(options.sessionId);
+      const hypothesis = resolveSgtHypothesis(atoms, preflight.hypothesisId, preflight.sessionId);
+      const refusal = expandRefusal(hypothesis);
+      if (refusal) throw sgtExpandRefused(hypothesis.atomId, refusal);
+
+      const existing = atoms[scaffoldId];
+      let packChanged = false;
+      withoutTrace(options.trace, () => {
+        if (!existing) {
+          assertProcessAtomOk(server.processAtom({
+            atomId: scaffoldId,
+            atomType: 'verification',
+            content,
+            dependencies: [hypothesis.atomId],
+            confidence: EXPAND_SCAFFOLD_CONFIDENCE,
+            isVerified: false,
+            evidence,
+            sessionId: preflight.sessionId,
+          }));
+          packChanged = true;
+        } else {
+          // Diff-idempotent re-expand: identical pack -> no write; changed
+          // pack -> updateAtom only (never a processAtom overwrite).
+          const unchanged = existing.content === content
+            && (existing.evidence ?? []).join(' ') === evidence.join(' ')
+            && existing.dependencies.join(' ') === hypothesis.atomId
+            && existing.confidence === EXPAND_SCAFFOLD_CONFIDENCE;
+          if (!unchanged) {
+            server.updateAtom(scaffoldId, {
+              content,
+              confidence: EXPAND_SCAFFOLD_CONFIDENCE,
+              dependencies: [hypothesis.atomId],
+              evidence,
+            }, options.sessionId);
+            packChanged = true;
+          }
+        }
+      });
+      saveServer(server);
+      return {
+        status: 'success',
+        sessionId: preflight.sessionId,
+        query: preflight.query,
+        slug: preflight.slug,
+        hypothesisId: hypothesis.atomId,
+        atomId: scaffoldId,
+        budget: options.budget,
+        excerptCount: packet.excerpts.length,
+        created: !existing,
+        packChanged,
+        excerpts: packet.excerpts.map(excerpt => ({
+          heading: excerpt.heading,
+          ...(excerpt.score !== undefined ? { score: excerpt.score } : {}),
+          excerpt: excerpt.excerpt,
+        })),
+        references: packet.references.map(reference => ({
+          kind: reference.kind,
+          path: reference.path,
+          ...(reference.bytes !== undefined ? { bytes: reference.bytes } : {}),
+        })),
+        omittedDueToBudget: pack.omittedDueToBudget,
+        ...(packet.contextDeferred ? { contextDeferred: true, ...(packet.omittedReason ? { omittedReason: packet.omittedReason } : {}) } : {}),
+        evidence,
+      };
+    }));
+  },
+});
+
+sgt.command('advise', {
+  description: 'Metacognition over the sgt bridge atoms: emit a ranked, machine-actionable {action, command, why} list derived purely from session state — zero subprocess, works with no sgt binary present. Tiers: expand unexpanded high-confidence hypotheses, judge disclosed ones, explore laterally from verified skills, refine low-coverage queries with their missing tokens. Refuted and superseded slugs are excluded from every tier.',
+  options: z.object({
+    limit: z.coerce.number().default(8).describe('Maximum advice entries returned'),
+    sessionId: z.string().optional().describe('Session (default active)'),
+  }),
+  output: AnyOutput,
+  examples: [
+    { description: 'Ranked next actions for the active session' },
+    { options: exampleOptions({ limit: 5 }), description: 'Only the top five actions' },
+  ],
+  run({ options }) {
+    // Pure session-state read: no lock, no state rewrite, no subprocess.
+    return withDomainErrors(() => {
+      const server = makeServer();
+      const sessionId = options.sessionId ?? server.getActiveSessionId();
+      const atoms = server.getAtoms(options.sessionId);
+      const candidates = adviseCandidates(atoms);
+      const advice = candidates.slice(0, Math.max(0, options.limit)).map((candidate, index) => ({
+        rank: index + 1,
+        action: candidate.action,
+        command: candidate.command,
+        ...(candidate.argChoices ? { argChoices: candidate.argChoices } : {}),
+        why: candidate.why,
+        atomId: candidate.atomId,
+        slug: candidate.slug,
+        score: candidate.score,
+        tier: candidate.tier,
+      }));
+      return { status: 'success', sessionId, candidateCount: candidates.length, advice };
+    });
+  },
+});
+
+sgt.command('trace', {
+  description: 'Unified reasoning + traversal trace: render the atom graph through the standard `aot graph` renderers with sgt skill atoms tagged by slug — tree/mermaid/dot get a " [sgt:{slug}]" label suffix, canvas cards a final "sgt:{slug}" line. Zero subprocess, works with no sgt binary present (I1); stdout is byte-identical to `aot graph` for the same session and --graphFormat when no skill atoms exist.',
+  options: GraphRenderOptionsSchema,
+  // Union: raw rendered string by default, structured payload with --format/--out.
+  output: z.any(),
+  examples: [
+    { options: { graphFormat: 'mermaid' }, description: 'Mermaid trace with skill atoms tagged [sgt:slug]' },
+    { options: { graphFormat: 'canvas', out: 'trace.canvas' }, description: 'Obsidian canvas trace file' },
+  ],
+  run({ options, formatExplicit }) {
+    return runGraphRender('aot sgt trace', options, formatExplicit);
+  },
+});
+
+cli.command(sgt);
 
 cli.command('set', {
   description: 'Update an existing atom: content, confidence, verification, polarity, evidence, or dependencies (cycle-checked). Archives the session when the update makes termination hold.',

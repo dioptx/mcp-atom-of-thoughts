@@ -1,0 +1,79 @@
+{
+  "query": "deploy kubernetes service",
+  "budget": {
+    "requestedTokens": 1200,
+    "estimatedReturnedTokens": 1196,
+    "retrievalPolicy": "metadata-only; body context deferred"
+  },
+  "decisionTree": [
+    {
+      "step": 1,
+      "axis": "domain",
+      "choice": "Infrastructure/DevOps/Deployment",
+      "why": "largest relevant split for query; keeps 412/7114 candidates",
+      "candidatesBefore": 7114,
+      "candidatesAfter": 412,
+      "alternatives": [
+        { "path": "Infrastructure/DevOps/Deployment", "matches": 412 }
+      ]
+    },
+    {
+      "step": 2,
+      "axis": "capability",
+      "choice": "Operate/Manage/Run",
+      "why": "largest relevant split for query; keeps 18/412 candidates",
+      "candidatesBefore": 412,
+      "candidatesAfter": 18,
+      "alternatives": [
+        { "path": "Operate/Manage/Run", "matches": 18 }
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "slug": "kubernetes-deployment-creator--claude-specific--5eda8a52",
+      "name": "kubernetes-deployment-creator",
+      "title": "|",
+      "score": 119.07,
+      "reasons": ["name:deploy", "name:kubernetes", "term:service"],
+      "facets": {
+        "domain": "Infrastructure/DevOps/Deployment",
+        "capability": "Operate/Manage/Run",
+        "lifecycle": "Ship/Deploy/Release",
+        "risk": "High/Deployment/Ops",
+        "scope": "Agent-specific/Claude"
+      },
+      "storedAt": "store/kubernetes-deployment-creator--claude-specific--5eda8a52"
+    },
+    {
+      "slug": "k8s-manifest-generator",
+      "name": "k8s-manifest-generator",
+      "title": "Create production-ready Kubernetes manifests",
+      "score": 41,
+      "reasons": ["title:deploy", "title:kubernetes", "title:service"],
+      "facets": {
+        "domain": "Infrastructure/DevOps/Deployment",
+        "capability": "Verify/Test/Validate",
+        "lifecycle": "Verify/Test/Validate",
+        "risk": "Medium/Filesystem/Repo",
+        "scope": "Agent-specific/Claude"
+      },
+      "storedAt": "store/k8s-manifest-generator"
+    },
+    {
+      "slug": "sparse-notes-skill",
+      "name": "sparse-notes-skill",
+      "title": "|",
+      "reasons": ["term:service"],
+      "facets": {
+        "domain": "Infrastructure/DevOps/Deployment",
+        "capability": "Operate/Manage/Run",
+        "lifecycle": "Operate/Monitor/Maintain",
+        "risk": "Low/Read-only",
+        "scope": "Agent-specific/Claude"
+      },
+      "storedAt": "store/sparse-notes-skill"
+    }
+  ],
+  "next": ["sgt context pack kubernetes-deployment-creator--claude-specific--5eda8a52"]
+}

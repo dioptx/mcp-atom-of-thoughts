@@ -10,6 +10,24 @@ export const VALID_ATOM_TYPES: AtomType[] = ['premise', 'reasoning', 'hypothesis
  */
 export type VerificationPolarity = 'supports' | 'refutes';
 
+/**
+ * Provenance link from an atom to an external sgt skill (skill-graph-traversal
+ * bridge). Optional and purely additive — atoms without it are unaffected.
+ */
+export interface SkillRef {
+  slug: string;
+  source: 'sgt';
+  score?: number;
+  coverage?: number;
+  /**
+   * Query-token diagnostics from sgt's semantic/query-dag paths (round 2,
+   * additive). Absent and [] are DISTINCT states (spec §2c): absent means
+   * "sgt reported nothing", [] means "sgt reported an empty list".
+   */
+  matchedTokens?: string[];
+  missingTokens?: string[];
+}
+
 export interface AtomData {
   atomId: string;
   content: string;
@@ -25,6 +43,8 @@ export interface AtomData {
   isRefuted?: boolean;
   /** Evidence artifact references (file paths, URLs). */
   evidence?: string[];
+  /** sgt bridge provenance (skill hypotheses); optional, backward compatible. */
+  skillRef?: SkillRef;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +218,13 @@ export interface GraphNode {
   polarity?: VerificationPolarity;
   isRefuted?: boolean;
   evidence?: string[];
+  /**
+   * sgt bridge provenance (round 3): carried through export/import so skill
+   * atoms stay tagged in renders and file-based analysis. Omitted entirely
+   * when absent — exports without skill atoms are byte-identical to pre-sgt
+   * payloads.
+   */
+  skillRef?: SkillRef;
   title?: string;
   labels?: string[];
   priority?: string;

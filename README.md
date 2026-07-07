@@ -200,6 +200,37 @@ npm run examples:dry-run
 npm run examples:dry-run -- --out=/tmp/aot-personal-workflows
 ```
 
+## Skill graph bridge (`aot sgt`)
+
+Loose coupling to the external [skill-graph-traversal](https://github.com/zpankz/sgt) CLI: `aot` shells out to the `sgt` binary (`SGT_BIN` env, default `sgt`; `SGT_TIMEOUT_MS` for the subprocess timeout), materializes deterministic route plans as ordinary AoT atoms (`sgt:q{hash}:` namespace), and steers the next traversal from the session's epistemic state. Full contract: [`docs/sgt-integration-spec.md`](docs/sgt-integration-spec.md).
+
+| Command | Purpose | Subprocess |
+|---|---|---|
+| `aot sgt route "<query>"` | `sgt route plan` → premise + reasoning chain + skill hypotheses with `skillRef` provenance; idempotent per (session, query) | yes |
+| `aot sgt expand <atomId\|slug>` | progressive disclosure: `sgt context pack` excerpts + a pending `e:{slug}` verification scaffold; refuses settled hypotheses BEFORE spawning | yes |
+| `aot sgt judge <atomId\|slug> --supports\|--refutes` | polarity verdict atom (`j:{slug}:{polarity}`) riding standard verifyAtom propagation | no |
+| `aot sgt advise` | ranked `{action, command, why}` next steps from session state alone | no |
+| `aot sgt trace --graphFormat tree\|mermaid\|dot\|canvas` | unified trace through the `aot graph` renderers with skill atoms tagged `[sgt:slug]`; byte-identical to `aot graph` when no skill atoms exist | no |
+
+`aot analyze` lints stale skill hypotheses as informational `advise_pending` issues (`awaits expand` / `awaits judge`). They always appear in `issues`, but the default `--gate` exempts them (the gate payload reports `failOn: 'all'` plus `exempt: ['advise_pending']`); opt in explicitly with `--failOn advise_pending`.
+
+Error-code inventory — every one of these leaves session state byte-identical (state never modified):
+
+| Code | Meaning |
+|---|---|
+| `SGT_UNAVAILABLE` (`SGT_NOT_FOUND`) | sgt binary missing |
+| `SGT_UNAVAILABLE` (`SGT_TIMEOUT`) | subprocess exceeded `SGT_TIMEOUT_MS` (SIGKILL) |
+| `SGT_UNAVAILABLE` (`SGT_EXIT_ERROR`) | non-zero exit — wins over valid stdout JSON |
+| `SGT_UNAVAILABLE` (`SGT_BAD_JSON`) | unparseable stdout |
+| `SGT_UNAVAILABLE` (`SGT_SCHEMA_MISMATCH`) | JSON fails the route-plan/context-pack schema |
+| `SGT_EXPAND_REFUSED` | hypothesis refuted/verified/superseded — refused before any subprocess |
+| `SGT_SLUG_UNRESOLVED` | context pack did not resolve the slug |
+| `SGT_NOT_HYPOTHESIS` | target atom is not an sgt skill hypothesis |
+| `SGT_HYPOTHESIS_NOT_FOUND` | no hypothesis matches the bare slug |
+| `SGT_AMBIGUOUS_SLUG` | bare slug matches hypotheses under multiple query hashes |
+
+Smoke the whole loop against the fixture binary (no corpus, no network): `npm run smoke:sgt`.
+
 ### Visualization
 
 Pass `viz: true` on any call to open an interactive D3 graph in the browser:

@@ -7,6 +7,7 @@ import {
   DecompositionState,
   Session,
   SessionSummary,
+  SkillRef,
   VALID_ATOM_TYPES,
 } from './types.js';
 import { dedupeCausalLinks } from './systems-analysis.js';
@@ -277,6 +278,22 @@ export class AtomOfThoughtsServer {
       const evidence = (data.evidence as unknown[]).filter((e): e is string => typeof e === 'string' && e.length > 0);
       if (evidence.length > 0) atom.evidence = evidence;
     }
+    // sgt bridge provenance: pass through when shaped correctly, else drop.
+    const skillRef = data.skillRef as Record<string, unknown> | undefined;
+    if (skillRef && typeof skillRef === 'object' && typeof skillRef.slug === 'string' && skillRef.slug.length > 0 && skillRef.source === 'sgt') {
+      const tokenList = (value: unknown): string[] | undefined =>
+        Array.isArray(value) && value.every((entry): entry is string => typeof entry === 'string') ? value : undefined;
+      const matchedTokens = tokenList(skillRef.matchedTokens);
+      const missingTokens = tokenList(skillRef.missingTokens);
+      atom.skillRef = {
+        slug: skillRef.slug,
+        source: 'sgt',
+        ...(typeof skillRef.score === 'number' ? { score: skillRef.score } : {}),
+        ...(typeof skillRef.coverage === 'number' ? { coverage: skillRef.coverage } : {}),
+        ...(matchedTokens !== undefined ? { matchedTokens } : {}),
+        ...(missingTokens !== undefined ? { missingTokens } : {}),
+      };
+    }
     return atom;
   }
 
@@ -345,7 +362,7 @@ export class AtomOfThoughtsServer {
   // Direct mutation (CLI-facing)
   // -------------------------------------------------------------------------
 
-  public updateAtom(atomId: string, patch: { content?: string; confidence?: number; isVerified?: boolean; dependencies?: string[]; polarity?: 'supports' | 'refutes'; evidence?: string[] }, sessionId?: string): AtomData {
+  public updateAtom(atomId: string, patch: { content?: string; confidence?: number; isVerified?: boolean; dependencies?: string[]; polarity?: 'supports' | 'refutes'; evidence?: string[]; skillRef?: SkillRef }, sessionId?: string): AtomData {
     const session = this.getSession(sessionId);
     const atom = session.atoms[atomId];
     if (!atom) throw new Error(`Atom with ID ${atomId} not found`);
@@ -369,6 +386,9 @@ export class AtomOfThoughtsServer {
     }
     if (patch.evidence !== undefined) {
       atom.evidence = patch.evidence.length > 0 ? patch.evidence : undefined;
+    }
+    if (patch.skillRef !== undefined) {
+      atom.skillRef = patch.skillRef;
     }
     if (patch.isVerified !== undefined) {
       this.verifyAtom(session, atomId, patch.isVerified);

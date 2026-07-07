@@ -1,0 +1,47 @@
+{
+  "budget": {
+    "requestedTokens": 1200,
+    "estimatedTokens": 512,
+    "policy": "excerpt windows only; full source omitted"
+  },
+  "packets": [
+    {
+      "skill": {
+        "slug": "k8s-manifest-generator",
+        "name": "k8s-manifest-generator",
+        "title": "Create production-ready Kubernetes manifests",
+        "storedAt": "store/k8s-manifest-generator"
+      },
+      "excerpts": [
+        {
+          "heading": "Trigger & When",
+          "score": 12,
+          "excerpt": "Use when the user asks for Kubernetes Deployment, Service, Ingress, ConfigMap, or HPA manifests for a workload."
+        },
+        {
+          "heading": "Usage",
+          "score": 7,
+          "excerpt": "Provide the workload name, image, replica count, and ports; the skill emits validated YAML manifests."
+        }
+      ],
+      "references": [
+        { "kind": "references", "path": "store/k8s-manifest-generator/references/SKILL.md", "bytes": 4321 },
+        { "kind": "scripts", "path": "store/k8s-manifest-generator/scripts/render.sh", "bytes": 812 }
+      ]
+    },
+    {
+      "skill": {
+        "slug": "kubernetes-deployment-creator--claude-specific--5eda8a52",
+        "name": "kubernetes-deployment-creator",
+        "title": "|",
+        "storedAt": "store/kubernetes-deployment-creator--claude-specific--5eda8a52"
+      },
+      "excerpts": [],
+      "references": [],
+      "contextDeferred": true,
+      "omittedReason": "excerpt packet exceeds requested budget"
+    }
+  ],
+  "unresolvedSlugs": [],
+  "omittedDueToBudget": ["sparse-notes-skill"]
+}

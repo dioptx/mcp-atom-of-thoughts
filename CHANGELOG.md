@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added — sgt skill-graph bridge round 3 (`aot sgt trace`, analyze awareness, verification hardening)
+
+Completes the `aot sgt` bridge to the external skill-graph-traversal CLI (rounds 1-2 shipped `route`/`judge`/`expand`/`advise`; spec: `docs/sgt-integration-spec.md`, now Status: implemented v1).
+
+- **`aot sgt trace --graphFormat tree|mermaid|dot|canvas`** — unified reasoning + traversal trace through the SAME renderers as `aot graph`: skill atoms are tagged with their slug (tree/mermaid/dot label suffix ` [sgt:{slug}]` appended after content truncation; canvas cards gain a final `sgt:{slug}` text line). Byte-identical to `aot graph` when a session has no skill atoms (pinned against pre-change goldens); zero subprocess, works with no sgt binary present.
+- **skillRef export/import round-trip** — `GraphNode.skillRef` (additive): `aot export` carries skill provenance (omitted entirely for non-skill graphs), `aot import` restores it, and `aot analyze --from <export>` sees the same skill state as the live session.
+- **analyze/gate awareness** — new informational `advise_pending` lint: one issue per stale skill hypothesis awaiting `expand` (tier 1) or `judge` (tier 2), derived from the same predicates as `aot sgt advise`. Always present in `issues`; exempt from the default `--gate` (payload reports `failOn: 'all'` + `exempt: ['advise_pending']`); `--failOn advise_pending` opts back in.
+- **Verification hardening** — exported `SGT_PROVENANCE_REF_RE` grammar with golden-vector + reconstructed-negative-control tests; Round-2 must-fix traceability matrix (spec §6); adversarial edge suite (empty packets, ambiguous slugs, mid-chain failures, superseded-scaffold revival, `missingTokens: []` idempotency); end-to-end contract test through the built CLI; ship/no-ship checklist S1-S11 with frozen deferrals D1-D7 (spec §7).
+- **Operator smoke** — `npm run smoke:sgt` drives route → advise → expand → advise → judge → trace (all four formats, mermaid byte-compared to a checked-in snapshot) → `aot analyze --gate` exit 0 against the fixture SGT_BIN.
+- **Tooling** — `npm test` now builds first (`pretest`); missing `build/cli.js` FAILS the cli-sgt suites with an actionable message instead of skipping. README gains an `aot sgt` section with the command table, `SGT_BIN` env, and the full error-code inventory (`SGT_UNAVAILABLE`{`NOT_FOUND`,`TIMEOUT`,`EXIT_ERROR`,`BAD_JSON`,`SCHEMA_MISMATCH`}, `SGT_EXPAND_REFUSED`, `SGT_SLUG_UNRESOLVED`, `SGT_NOT_HYPOTHESIS`, `SGT_HYPOTHESIS_NOT_FOUND`, `SGT_AMBIGUOUS_SLUG` — all "state never modified").
+
 ### Added — systems-thinking layer (causal loops, feedback, control, emergence)
 
 A signed-causal graph over the same atoms, complementing the epistemic AoT DAG. The DAG answers "what we believe and why"; the systems layer answers "how the believed system behaves". Confidence flows from AoT into loop weighting; refuted atoms are excluded; verification atoms double as control-loop sensors.

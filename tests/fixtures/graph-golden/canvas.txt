@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "P1",
+      "type": "text",
+      "text": "**P1** (premise, 90%)\n\nAPI returns 500",
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 120,
+      "color": "4"
+    },
+    {
+      "id": "R1",
+      "type": "text",
+      "text": "**R1** (reasoning, 80%)\n\nHandler throws",
+      "x": 420,
+      "y": 0,
+      "width": 360,
+      "height": 120,
+      "color": "5"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-0",
+      "fromNode": "P1",
+      "fromSide": "right",
+      "toNode": "R1",
+      "toSide": "left"
+    }
+  ]
+}

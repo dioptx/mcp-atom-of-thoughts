@@ -1,0 +1,40 @@
+{
+  "query": "deploy kubernetes service",
+  "decisionTree": [
+    {
+      "step": 1,
+      "axis": "domain",
+      "choice": "Infrastructure/DevOps/Deployment",
+      "why": "largest relevant split for query; keeps 412/7114 candidates",
+      "candidatesBefore": 7114,
+      "candidatesAfter": 412
+    },
+    {
+      "step": 2,
+      "axis": "capability",
+      "choice": "Operate/Manage/Run",
+      "why": "largest relevant split for query; keeps 18/412 candidates",
+      "candidatesBefore": 412,
+      "candidatesAfter": 18
+    }
+  ],
+  "skills": [
+    {
+      "slug": "kubernetes-deployment-creator--claude-specific--5eda8a52",
+      "name": "kubernetes-deployment-creator",
+      "score": 119.07,
+      "missingTokens": ["helm", "chart"]
+    },
+    {
+      "slug": "k8s-manifest-generator",
+      "name": "k8s-manifest-generator",
+      "score": 41
+    },
+    {
+      "slug": "sparse-notes-skill",
+      "name": "sparse-notes-skill",
+      "matchedTokens": ["service"],
+      "missingTokens": ["helm", "chart"]
+    }
+  ]
+}

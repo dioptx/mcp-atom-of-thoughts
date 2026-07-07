@@ -1,0 +1,7 @@
+digraph aot {
+  rankdir=TB;
+  node [shape=box, fontsize=10];
+  "P1" [label="[P] P1 (90%) API returns 500"];
+  "R1" [label="[R] R1 (80%) Handler throws"];
+  "P1" -> "R1";
+}

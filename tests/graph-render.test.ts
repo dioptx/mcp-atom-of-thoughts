@@ -156,3 +156,64 @@ describe('graph-render causal layer (round 3)', () => {
     }
   });
 });
+
+describe('graph-render sgt tag layer (sgt round 3)', () => {
+  const SLUG = 'kubernetes-deployment-creator--claude-specific--5eda8a52';
+  const skillGraph: GraphData = {
+    title: 'Skill Graph',
+    nodes: [
+      { id: 'P1', type: 'premise', content: 'deploy kubernetes service', confidence: 0.95, depth: 0 },
+      {
+        id: `sgt:q12345678:h:${SLUG}`,
+        type: 'hypothesis',
+        content: `skill ${SLUG} is relevant to: deploy kubernetes service — a deliberately long content line`,
+        confidence: 0.7,
+        depth: 1,
+        skillRef: { slug: SLUG, source: 'sgt', score: 119.07 },
+      },
+    ],
+    links: [{ source: 'P1', target: `sgt:q12345678:h:${SLUG}` }],
+  };
+
+  it('tree/mermaid/dot: tag appended in nodeLabel AFTER content truncation (single space, literal brackets, slug verbatim with double dashes)', () => {
+    const tree = renderTree(skillGraph);
+    const treeLine = tree.split('\n').find(line => line.includes(`h:${SLUG}`))!;
+    expect(treeLine.endsWith(` [sgt:${SLUG}]`)).toBe(true);
+    expect(treeLine).toContain(`… [sgt:${SLUG}]`); // truncation boundary unchanged, tag after the ellipsis
+
+    const mermaid = renderMermaid(skillGraph);
+    const mermaidLine = mermaid.split('\n').find(line => line.includes(`h:${SLUG}[`))!;
+    expect(mermaidLine).toMatch(new RegExp(`… \\[sgt:${SLUG}\\]"\\]$`)); // inside the quoted label, before the closing quote
+
+    const dot = renderDot(skillGraph);
+    const dotLine = dot.split('\n').find(line => line.includes(`"sgt:q12345678:h:${SLUG}"`))!;
+    expect(dotLine).toMatch(new RegExp(`… \\[sgt:${SLUG}\\]"\\];$`)); // before the closing escaped quote
+  });
+
+  it('canvas: text field ends with "\\nsgt:{slug}" (independent of the nodeLabel path); content untouched; JSON parses', () => {
+    const canvas = JSON.parse(renderCanvas(skillGraph));
+    const card = canvas.nodes.find((n: { id: string }) => n.id === `sgt:q12345678:h:${SLUG}`);
+    expect(card.text.endsWith(`\nsgt:${SLUG}`)).toBe(true);
+    expect(card.text).toContain('a deliberately long content line'); // canvas content is never truncated or altered
+    const premise = canvas.nodes.find((n: { id: string }) => n.id === 'P1');
+    expect(premise.text.endsWith('deploy kubernetes service')).toBe(true);
+  });
+
+  it('non-skill nodes are untouched: stripping skillRef removes every tag, and shared nodes render identical lines either way', () => {
+    const plain: GraphData = {
+      title: skillGraph.title,
+      nodes: skillGraph.nodes.map(({ skillRef: _skillRef, ...node }) => node),
+      links: skillGraph.links,
+    };
+    for (const fmt of ['tree', 'mermaid', 'dot', 'canvas'] as const) {
+      const rendered = renderGraph(plain, fmt);
+      expect(rendered).not.toContain('[sgt:');
+      expect(rendered).not.toContain('\nsgt:');
+    }
+    // The premise line is byte-identical whether or not a sibling carries a tag.
+    const premiseLine = (out: string): string => out.split('\n').find(line => line.includes('P1'))!;
+    expect(premiseLine(renderTree(skillGraph))).toBe(premiseLine(renderTree(plain)));
+    expect(premiseLine(renderMermaid(skillGraph))).toBe(premiseLine(renderMermaid(plain)));
+    expect(premiseLine(renderDot(skillGraph))).toBe(premiseLine(renderDot(plain)));
+  });
+});

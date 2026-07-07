@@ -1,0 +1,4 @@
+graph TD
+  P1["[P] P1 (90%) API returns 500"]
+  R1["[R] R1 (80%) Handler throws"]
+  P1 --> R1

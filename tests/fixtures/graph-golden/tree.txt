@@ -1,0 +1,4 @@
+AoT Plan Visualization
+
+[P] P1 (90%) API returns 500
+└── [R] R1 (80%) Handler throws
