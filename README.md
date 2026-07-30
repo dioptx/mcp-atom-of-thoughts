@@ -184,7 +184,7 @@ Safety contract:
 
 - Pipeline outputs include `schemaVersion`, `runId`, `generatedAt`, and `pipeline`.
 - `--dryRun` returns planned AoT/br/Linear actions without external side effects.
-- Linear writes are idempotent: each node description includes `AoT external ref: aot:<session>:<node>`, and real runs search that marker before creating issues.
+- Linear sync follows `linear-cli` 0.3.25 conventions: labels use repeated `--labels <label>` flags; issue retries fetch candidate details and reuse only an exact `AoT external ref: aot:<session>:<node>` line; failed lookups abort before the corresponding create/add, and relation retries require one record matching both type and endpoint.
 - Linear descriptions are sent on stdin with `--description -`, so markdown never leaks into shell argv.
 - External command failures return structured `{status:"error", code, command, args, exitCode, stderrHint}` payloads.
 
