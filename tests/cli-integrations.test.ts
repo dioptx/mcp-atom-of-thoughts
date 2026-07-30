@@ -230,6 +230,51 @@ describe('CLI integration helpers', () => {
     });
   });
 
+  it('requires a complete Linear external-reference marker line', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-prefix',
+      nodes: [{ id: 'A', title: 'Requirement', type: 'premise' }],
+    });
+    const command = fileURLToPath(new URL('./fixtures/linear-cli-dedupe.sh', import.meta.url));
+
+    const result = syncDagToLinear(dag, { command });
+    const created = (result.created as Array<Record<string, unknown>>)[0];
+
+    expect(created).toMatchObject({ nodeId: 'A', issueId: 'CLA-9' });
+    expect(created).not.toHaveProperty('existing');
+  });
+
+  it('matches Linear relation endpoint and type in the same record', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-relations',
+      nodes: [
+        { id: 'A', linearId: 'CLA-A' },
+        { id: 'B', linearId: 'CLA-B' },
+        { id: 'C', linearId: 'CLA-C' },
+      ],
+      edges: [{ from: 'A', to: 'B', type: 'blocks' }, { from: 'A', to: 'C', type: 'blocks' }],
+    });
+    const command = fileURLToPath(new URL('./fixtures/linear-cli-dedupe.sh', import.meta.url));
+
+    const result = syncDagToLinear(dag, { command });
+    const relations = result.relations as Array<Record<string, unknown>>;
+
+    expect(relations[0]).toMatchObject({
+      from: 'A',
+      to: 'B',
+      relation: 'blocks',
+      payload: { id: 'rel-new', type: 'blocks' },
+    });
+    expect(relations[0]).not.toHaveProperty('existing');
+    expect(relations[1]).toMatchObject({
+      from: 'A',
+      to: 'C',
+      relation: 'blocks',
+      existing: true,
+      issueIds: { from: 'CLA-A', to: 'CLA-C' },
+    });
+  });
+
   it('formats validation failures as structured agent-readable payloads', () => {
     let error: unknown;
     try {

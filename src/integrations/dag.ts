@@ -400,7 +400,8 @@ function linearIssueCandidates(payload: unknown): Array<Record<string, unknown>>
 }
 
 function issueContainsRef(issue: Record<string, unknown>, externalRef: string): boolean {
-  return JSON.stringify(issue).includes(externalRef);
+  return typeof issue.description === 'string'
+    && issue.description.split(/\r?\n/).includes(`AoT external ref: ${externalRef}`);
 }
 
 function findExistingLinearIssue(command: string, dag: NormalizedDag, node: NormalizedDagNode, options: LinearDagOptions): Record<string, unknown> | undefined {
@@ -426,7 +427,17 @@ function linearRelationExists(command: string, from: string, to: string, relatio
   const result = runCommand(command, [...linearGlobalArgs(options), 'relations', 'list', from], undefined, options.cwd);
   assertCommandOk(result, `Linear relation dedupe check failed for ${from} -> ${to}`);
   const payload = firstJson(result.combined);
-  return JSON.stringify(payload).includes(to) && JSON.stringify(payload).toLowerCase().includes(relation.toLowerCase());
+  if (!payload || typeof payload !== 'object') return false;
+  const relations = (payload as Record<string, unknown>).relations;
+  if (!Array.isArray(relations)) return false;
+  return relations.some(item => {
+    if (!item || typeof item !== 'object') return false;
+    const record = item as Record<string, unknown>;
+    const relatedIssue = record.relatedIssue;
+    if (!relatedIssue || typeof relatedIssue !== 'object') return false;
+    const endpoint = relatedIssue as Record<string, unknown>;
+    return record.type === relation && String(endpoint.identifier ?? endpoint.id ?? '') === to;
+  });
 }
 
 export function syncDagToLinear(dag: NormalizedDag, options: LinearDagOptions = {}): Record<string, unknown> {
