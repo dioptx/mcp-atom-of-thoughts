@@ -134,7 +134,7 @@ Safety contract agents can rely on:
 
 - `schemaVersion`, `runId`, `generatedAt`, and `pipeline` appear on pipeline outputs.
 - `dryRun: true` means no AoT/br/Linear/bv side effects.
-- Linear issue dedupe uses `AoT external ref: aot:<session>:<node>` before create.
+- Linear sync retry semantics are documented in the [README safety contract](README.md#dag-planning-across-aot-br-bv-git-and-linear).
 - Linear descriptions go through stdin (`--description -`), preserving markdown and avoiding argv leaks.
 - External tool failures are structured under `error` with `code`, `command`, `args`, `exitCode`, and stderr/stdout hints.
 

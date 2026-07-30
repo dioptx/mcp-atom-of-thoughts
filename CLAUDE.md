@@ -59,7 +59,7 @@ Each atom: `atomId`, `content`, `atomType` (required), `dependencies` (default [
 
 ```bash
 npm run build          # tsc + copy d3 asset
-npm test               # vitest (165 tests)
+npm test               # vitest
 npm run test:watch     # vitest watch mode
 ```
 
@@ -67,7 +67,7 @@ npm run test:watch     # vitest watch mode
 - Tests in `tests/` using Vitest
 - Test atom servers directly via class methods, not through MCP transport
 - Use descriptive atom IDs in tests (P1, R1, H1, V1, C1)
-- Test files: `tools.test.ts`, `atom-server.test.ts`, `atom-light-server.test.ts`, `config.test.ts`, `integration.test.ts`, `visualization.test.ts`, `graph-export.test.ts`, `types.test.ts`, `approval.test.ts`, `approval-server.test.ts`, `sessions.test.ts`, `payload-shape.test.ts`
+- Feature-specific suites live under `tests/`; use the repository tree as the inventory
 
 ### Key Constraints
 - Only `atomId`, `content`, `atomType` are required — all others have defaults
