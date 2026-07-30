@@ -406,7 +406,7 @@ function issueContainsRef(issue: Record<string, unknown>, externalRef: string): 
 
 function findExistingLinearIssue(command: string, dag: NormalizedDag, node: NormalizedDagNode, options: LinearDagOptions): Record<string, unknown> | undefined {
   const externalRef = dagExternalRef(dag, node.id);
-  const args = [...linearGlobalArgs(options), 'search', 'issues', externalRef, '--limit', '10'];
+  const args = [...linearGlobalArgs(options), 'search', 'issues', externalRef, '--all'];
   const result = runCommand(command, args, undefined, options.cwd);
   assertCommandOk(result, `Linear dedupe search failed for ${externalRef}; refusing to create a possible duplicate`);
   const payload = firstJson(result.combined);
