@@ -409,7 +409,17 @@ function findExistingLinearIssue(command: string, dag: NormalizedDag, node: Norm
   const result = runCommand(command, args, undefined, options.cwd);
   assertCommandOk(result, `Linear dedupe search failed for ${externalRef}; refusing to create a possible duplicate`);
   const payload = firstJson(result.combined);
-  return linearIssueCandidates(payload).find(issue => issueContainsRef(issue, externalRef));
+  for (const issue of linearIssueCandidates(payload)) {
+    const issueId = linearIssueId(issue);
+    if (!issueId) continue;
+    const detailResult = runCommand(command, [...linearGlobalArgs(options), 'issues', 'get', issueId], undefined, options.cwd);
+    assertCommandOk(detailResult, `Linear dedupe detail lookup failed for ${issueId}; refusing to create a possible duplicate`);
+    const detail = firstJson(detailResult.combined);
+    if (detail && typeof detail === 'object' && issueContainsRef(detail as Record<string, unknown>, externalRef)) {
+      return detail as Record<string, unknown>;
+    }
+  }
+  return undefined;
 }
 
 function linearRelationExists(command: string, from: string, to: string, relation: string, options: LinearDagOptions): boolean {
@@ -442,11 +452,12 @@ export function syncDagToLinear(dag: NormalizedDag, options: LinearDagOptions = 
         continue;
       }
     }
+    const labelArgs = unique([...(options.labels ?? []), ...node.labels]).flatMap(label => ['--labels', label]);
     const args = [
       ...linearGlobalArgs(options),
       'issues', 'create', node.title,
       '--description', '-',
-      '--labels', unique([...(options.labels ?? []), ...node.labels]).join(','),
+      ...labelArgs,
     ];
     if (options.team) args.push('--team', options.team);
     if (options.state) args.push('--state', options.state);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'incur';
+import { fileURLToPath } from 'node:url';
 import { summarizeBrSync, syncGraphToBr } from '../src/integrations/br.js';
 import { summarizeBvRobot } from '../src/integrations/bv.js';
 import { buildDagAtoms, buildDagGraph, normalizeDag, resolveDagSession, summarizeDag, syncDagToLinear } from '../src/integrations/dag.js';
@@ -197,6 +198,36 @@ describe('CLI integration helpers', () => {
     expect(result.relations).toEqual([
       expect.objectContaining({ from: 'A', to: 'B', relation: 'blocks', planned: expect.arrayContaining(['definitely-not-installed-linear', 'relations', 'add']) }),
     ]);
+  });
+
+  it('passes Linear labels as repeated flags instead of one comma-separated label', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-labels',
+      nodes: [{ id: 'A', title: 'Requirement', type: 'premise', labels: ['Improvement'] }],
+    });
+
+    const result = syncDagToLinear(dag, { dryRun: true, command: 'definitely-not-installed-linear' });
+    const planned = (result.created as Array<{ planned: string[] }>)[0].planned;
+
+    expect(planned.filter(arg => arg === '--labels')).toHaveLength(4);
+    expect(planned).toEqual(expect.arrayContaining(['aot', 'dag', 'Improvement', 'premise']));
+    expect(planned).not.toContain('aot,dag,Improvement,premise');
+  });
+
+  it('fetches Linear issue details before checking an external-reference dedupe match', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-dedupe',
+      nodes: [{ id: 'A', title: 'Requirement', type: 'premise' }],
+    });
+    const command = fileURLToPath(new URL('./fixtures/linear-cli-dedupe.sh', import.meta.url));
+
+    const result = syncDagToLinear(dag, { command });
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      created: [expect.objectContaining({ nodeId: 'A', issueId: 'CLA-8', existing: true })],
+      relations: [],
+    });
   });
 
   it('formats validation failures as structured agent-readable payloads', () => {
