@@ -11,6 +11,10 @@ case "$*" in
   *"search issues aot:linear-dedupe:A --all --archived"*)
     printf '%s\n' '[{"identifier":"CLA-8","title":"Requirement"}]'
     ;;
+  *"search issues aot:linear-search-fail:A --all --archived"*)
+    printf '%s\n' 'simulated search failure' >&2
+    exit 91
+    ;;
   *"issues get CLA-81"*)
     printf '%s\n' '{"identifier":"CLA-81","description":"AoT external ref: aot:linear-prefix:A1"}'
     ;;
@@ -22,6 +26,10 @@ case "$*" in
     ;;
   *"relations list CLA-A"*)
     printf '%s\n' '{"issue":{"identifier":"CLA-A"},"relations":[{"id":"rel-1","type":"blocks","relatedIssue":{"identifier":"CLA-C"}},{"id":"rel-2","type":"related","relatedIssue":{"identifier":"CLA-B"}}],"inverseRelations":[]}'
+    ;;
+  *"relations list CLA-FAIL"*)
+    printf '%s\n' 'simulated relation lookup failure' >&2
+    exit 92
     ;;
   *"relations add --relation blocks CLA-A CLA-B"*)
     printf '%s\n' '{"id":"rel-new","type":"blocks"}'

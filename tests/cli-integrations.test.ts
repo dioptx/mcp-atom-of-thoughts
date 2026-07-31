@@ -230,6 +230,18 @@ describe('CLI integration helpers', () => {
     });
   });
 
+  it('fails closed when Linear issue dedupe search fails', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-search-fail',
+      nodes: [{ id: 'A', title: 'Requirement', type: 'premise' }],
+    });
+    const command = fileURLToPath(new URL('./fixtures/linear-cli-dedupe.sh', import.meta.url));
+
+    expect(() => syncDagToLinear(dag, { command })).toThrow(
+      'Linear dedupe search failed for aot:linear-search-fail:A; refusing to create a possible duplicate',
+    );
+  });
+
   it('requires a complete Linear external-reference marker line', () => {
     const dag = normalizeDag({
       sessionId: 'linear-prefix',
@@ -273,6 +285,22 @@ describe('CLI integration helpers', () => {
       existing: true,
       issueIds: { from: 'CLA-A', to: 'CLA-C' },
     });
+  });
+
+  it('fails closed when Linear relation lookup fails', () => {
+    const dag = normalizeDag({
+      sessionId: 'linear-relation-fail',
+      nodes: [
+        { id: 'A', linearId: 'CLA-FAIL' },
+        { id: 'B', linearId: 'CLA-B' },
+      ],
+      edges: [{ from: 'A', to: 'B', type: 'blocks' }],
+    });
+    const command = fileURLToPath(new URL('./fixtures/linear-cli-dedupe.sh', import.meta.url));
+
+    expect(() => syncDagToLinear(dag, { command })).toThrow(
+      'Linear relation dedupe check failed for CLA-FAIL -> CLA-B',
+    );
   });
 
   it('formats validation failures as structured agent-readable payloads', () => {
