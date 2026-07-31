@@ -214,7 +214,7 @@ describe('CLI integration helpers', () => {
     expect(planned).not.toContain('aot,dag,Improvement,premise');
   });
 
-  it('fetches Linear issue details before checking an external-reference dedupe match', () => {
+  it('fetches archived Linear candidates and issue details before dedupe matching', () => {
     const dag = normalizeDag({
       sessionId: 'linear-dedupe',
       nodes: [{ id: 'A', title: 'Requirement', type: 'premise' }],

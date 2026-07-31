@@ -5,10 +5,10 @@ case "$*" in
   *"--version"*)
     printf '%s\n' 'linear-cli 0.3.25'
     ;;
-  *"search issues aot:linear-prefix:A --all"*)
+  *"search issues aot:linear-prefix:A --all --archived"*)
     printf '%s\n' '[{"identifier":"CLA-81","title":"Requirement"}]'
     ;;
-  *"search issues aot:linear-dedupe:A --all"*)
+  *"search issues aot:linear-dedupe:A --all --archived"*)
     printf '%s\n' '[{"identifier":"CLA-8","title":"Requirement"}]'
     ;;
   *"issues get CLA-81"*)

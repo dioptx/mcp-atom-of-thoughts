@@ -367,6 +367,14 @@ export class AtomOfThoughtsServer {
     const atom = session.atoms[atomId];
     if (!atom) throw new Error(`Atom with ID ${atomId} not found`);
 
+    const dependenciesChanged = patch.dependencies !== undefined
+      && (patch.dependencies.length !== atom.dependencies.length
+        || patch.dependencies.some((dependency, index) => dependency !== atom.dependencies[index]));
+    const polarityChanged = patch.polarity !== undefined && patch.polarity !== (atom.polarity ?? 'supports');
+    if (atom.atomType === 'verification' && atom.isVerified && (dependenciesChanged || polarityChanged)) {
+      throw new Error(`Cannot change dependencies or polarity of verified verification atom ${atomId}`);
+    }
+
     if (patch.dependencies !== undefined) {
       if (!this.validateDependencies(session, patch.dependencies)) {
         const missing = patch.dependencies.filter(depId => session.atoms[depId] === undefined);
@@ -434,8 +442,13 @@ export class AtomOfThoughtsServer {
     delete session.atoms[atomId];
     session.atomOrder = session.atomOrder.filter(id => id !== atomId);
     session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
-    for (const state of Object.values(session.decompositionStates)) {
-      state.subAtoms = state.subAtoms.filter(id => id !== atomId);
+    for (const [decompositionId, state] of Object.entries(session.decompositionStates)) {
+      if (state.originalAtomId === atomId) {
+        delete session.decompositionStates[decompositionId];
+        if (session.currentDecompositionId === decompositionId) session.currentDecompositionId = null;
+      } else {
+        state.subAtoms = state.subAtoms.filter(id => id !== atomId);
+      }
     }
     // Same sweep as dependency detachment: causal links touching the removed
     // atom go with it (with and without --force).

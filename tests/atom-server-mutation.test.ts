@@ -44,6 +44,19 @@ describe('atom mutation and integrity guards', () => {
     expect(server.getBestConclusion()).toBeNull();
   });
 
+  it('rejects propagation changes after a verification is verified', () => {
+    const server = new AtomOfThoughtsServer(5);
+    server.processAtom({ atomId: 'H1', atomType: 'hypothesis', content: 'first', confidence: 0.8 });
+    server.processAtom({ atomId: 'H2', atomType: 'hypothesis', content: 'second', confidence: 0.8 });
+    server.processAtom({ atomId: 'V1', atomType: 'verification', content: 'support', dependencies: ['H1'], confidence: 0.9, isVerified: true });
+
+    expect(() => server.updateAtom('V1', { polarity: 'refutes' })).toThrow(/verified verification/);
+    expect(() => server.updateAtom('V1', { dependencies: ['H2'] })).toThrow(/verified verification/);
+    expect(server.getAtoms()['V1']).toMatchObject({ dependencies: ['H1'], isVerified: true });
+    expect(server.getAtoms()['H1'].isVerified).toBe(true);
+    expect(server.getAtoms()['H2'].isVerified).toBe(false);
+  });
+
   it('removeAtom refuses while dependents exist, force detaches', () => {
     const server = makeChain();
     expect(() => server.removeAtom('P1')).toThrow(/dependents/);
@@ -60,6 +73,20 @@ describe('atom mutation and integrity guards', () => {
     server.updateAtom('C1', { isVerified: true });
     server.removeAtom('C1');
     expect(server.getBestConclusion()).toBeNull();
+  });
+
+  it('removeAtom cascades decompositions owned by the removed atom', () => {
+    const server = new AtomOfThoughtsServer(5);
+    server.processAtom({ atomId: 'P1', atomType: 'premise', content: 'parent' });
+    server.processAtom({ atomId: 'P2', atomType: 'premise', content: 'child' });
+    const decompositionId = server.startDecomposition('P1');
+    server.addToDecomposition(decompositionId, 'P2');
+
+    server.removeAtom('P1');
+
+    const session = server.exportState().sessions.default;
+    expect(session.decompositionStates[decompositionId]).toBeUndefined();
+    expect(session.currentDecompositionId).toBeNull();
   });
 
   it('auto-suggested conclusion IDs never collide with user atoms starting with C', () => {
