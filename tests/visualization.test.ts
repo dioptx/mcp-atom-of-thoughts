@@ -1,5 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { generateVisualizationHtml, writeVisualization } from '../src/visualization.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  spawn: vi.fn(() => ({ unref: vi.fn() })),
+}));
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return { ...actual, spawn: mocks.spawn };
+});
+
+import { generateVisualizationHtml, writeVisualization, openInBrowser } from '../src/visualization.js';
 import { getD3Script } from '../src/d3-bundle.js';
 import type { GraphData } from '../src/types.js';
 import * as fs from 'node:fs';
@@ -108,5 +118,32 @@ describe('writeVisualization', () => {
     const defaultDir = path.join(tmpDir, 'default');
     const filepath = writeVisualization('<html/>', explicit, undefined, defaultDir);
     expect(filepath).toContain(explicit);
+  });
+});
+
+describe('openInBrowser', () => {
+  beforeEach(() => {
+    mocks.spawn.mockClear();
+  });
+
+  it('launches the platform opener via spawn with an argv array (no shell)', () => {
+    openInBrowser('/tmp/plan.html');
+    expect(mocks.spawn).toHaveBeenCalledTimes(1);
+    const [cmd, args, opts] = mocks.spawn.mock.calls[0];
+    expect(typeof cmd).toBe('string');
+    expect(Array.isArray(args)).toBe(true);
+    expect(opts?.shell).not.toBe(true);
+  });
+
+  it('passes a malicious filepath as a single literal argument (no shell re-parsing)', () => {
+    const evil = '"; touch /tmp/aot-pwned; echo "';
+    openInBrowser(evil);
+    expect(mocks.spawn).toHaveBeenCalledTimes(1);
+    const [cmd, args] = mocks.spawn.mock.calls[0];
+    // The payload is carried verbatim as one argv element, never split into
+    // separate shell words, so the injected command is never a standalone arg.
+    expect(args).toContain(evil);
+    expect(args).not.toContain('touch');
+    expect(args).not.toContain('/tmp/aot-pwned');
   });
 });

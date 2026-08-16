@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { GraphData } from './types.js';
 import { getD3Script } from './d3-bundle.js';
 
@@ -39,14 +39,26 @@ export function writeVisualization(html: string, outputDir?: string, name?: stri
 
 export function openInBrowser(filepath: string): void {
   const platform = process.platform;
+  let cmd: string;
+  let args: string[];
+  if (platform === 'darwin') {
+    cmd = 'open';
+    args = [filepath];
+  } else if (platform === 'linux') {
+    cmd = 'xdg-open';
+    args = [filepath];
+  } else if (platform === 'win32') {
+    cmd = 'cmd';
+    args = ['/c', 'start', '""', filepath];
+  } else {
+    return;
+  }
   try {
-    if (platform === 'darwin') {
-      execSync(`open "${filepath}"`);
-    } else if (platform === 'linux') {
-      execSync(`xdg-open "${filepath}"`);
-    } else if (platform === 'win32') {
-      execSync(`start "" "${filepath}"`);
-    }
+    // Spawn with an argv array (shell: false by default) so `filepath` is
+    // passed as a single literal argument and never re-parsed by a shell.
+    // This prevents command injection via a malicious path such as
+    // `"; rm -rf ~ #"` reaching the previous execSync shell string.
+    spawn(cmd, args, { stdio: 'ignore', detached: true }).unref();
   } catch {
     // Non-fatal: browser open is best-effort
   }
