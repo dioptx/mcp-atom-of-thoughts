@@ -186,17 +186,34 @@ export class AtomOfThoughtsServer {
   // Verification, decomposition, termination — all session-scoped
   // -------------------------------------------------------------------------
 
+  /**
+   * Single place where an atom becomes verified. Keeps `verifiedConclusions`
+   * in step with `atom.isVerified` — every path that verifies an atom must go
+   * through here, otherwise a verified conclusion stays invisible to
+   * getBestConclusion() and the termination check.
+   */
+  protected markVerified(session: Session, atomId: string): void {
+    const atom = session.atoms[atomId];
+    if (!atom) return;
+
+    atom.isVerified = true;
+
+    if (atom.atomType === 'conclusion' && !session.verifiedConclusions.includes(atomId)) {
+      session.verifiedConclusions.push(atomId);
+    }
+
+    this.events?.emit({ kind: 'atom_verified', t: Date.now(), atomId, confidence: atom.confidence, sessionId: session.id });
+  }
+
   protected verifyAtom(session: Session, atomId: string, isVerified: boolean) {
     if (session.atoms[atomId]) {
-      session.atoms[atomId].isVerified = isVerified;
       if (isVerified) {
-        this.events?.emit({ kind: 'atom_verified', t: Date.now(), atomId, confidence: session.atoms[atomId].confidence, sessionId: session.id });
-      }
-
-      if (isVerified && session.atoms[atomId].atomType === 'conclusion') {
-        session.verifiedConclusions.push(atomId);
-      } else if (!isVerified && session.atoms[atomId].atomType === 'conclusion') {
-        session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
+        this.markVerified(session, atomId);
+      } else {
+        session.atoms[atomId].isVerified = false;
+        if (session.atoms[atomId].atomType === 'conclusion') {
+          session.verifiedConclusions = session.verifiedConclusions.filter(id => id !== atomId);
+        }
       }
 
       if (isVerified && session.atoms[atomId].atomType === 'verification') {
@@ -206,7 +223,7 @@ export class AtomOfThoughtsServer {
 
         if (verifiedHypothesisIds.length > 0) {
           verifiedHypothesisIds.forEach(hypId => {
-            session.atoms[hypId].isVerified = true;
+            this.markVerified(session, hypId);
           });
           this.checkForContraction(session, verifiedHypothesisIds);
         }
@@ -297,7 +314,9 @@ export class AtomOfThoughtsServer {
     const averageConfidence = subAtomConfidences.reduce((sum, conf) => sum + conf, 0) / subAtomConfidences.length;
 
     originalAtom.confidence = averageConfidence;
-    originalAtom.isVerified = true;
+    // Route through markVerified so a contracted conclusion is registered in
+    // session.verifiedConclusions, not just flagged on the atom.
+    this.markVerified(session, state.originalAtomId);
 
     if (originalAtom.atomType === 'hypothesis' && originalAtom.confidence >= 0.8) {
       this.suggestConclusion(session, originalAtom);
@@ -305,7 +324,12 @@ export class AtomOfThoughtsServer {
   }
 
   protected suggestConclusion(session: Session, verifiedHypothesis: AtomData): string {
-    const conclusionId = `C${Object.keys(session.atoms).filter(id => id.startsWith('C')).length + 1}`;
+    // Take the lowest free C-slot. Counting existing "C*" ids and adding one
+    // collides whenever the caller skipped a number (e.g. only C2 exists ->
+    // count 1 -> "C2"), which silently overwrote that atom.
+    let n = 1;
+    while (session.atoms[`C${n}`]) n++;
+    const conclusionId = `C${n}`;
 
     const conclusionAtom: AtomData = {
       atomId: conclusionId,
