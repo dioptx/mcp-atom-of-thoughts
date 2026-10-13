@@ -18,6 +18,11 @@ Structured reasoning for LLMs. Decompose, track confidence, visualize, approve.
 
 ## Quickstart
 
+> [!WARNING]
+> `@dioptx/mcp-atom-of-thoughts` is not yet published to npm — the `npx`/`npm install -g` commands below will 404 until it is. Use **Docker** or **build from source** (both in [Install](#install)) until then.
+>
+> The *unscoped* name `mcp-atom-of-thoughts` **is** on npm, but it's a different, unrelated package (v1.0.0, maintainer `jeongsk`, no link back to this repo) — dropping the `@dioptx/` scope to work around the 404 will silently install the wrong thing.
+
 **1.** Add to your MCP config:
 
 ```json
@@ -44,12 +49,15 @@ The model breaks the problem into five kinds of atoms (premise, reasoning, hypot
 
 ## Install
 
-**npx** *(recommended; zero install, always latest)*
+> [!NOTE]
+> `@dioptx/mcp-atom-of-thoughts` isn't published to npm yet, so **npx**, **npm global**, and **Smithery** below will fail with a 404 until it is. **Docker** and **build from source** work today — use one of those in the meantime. Don't drop the `@dioptx/` scope to work around the 404: the unscoped `mcp-atom-of-thoughts` package on npm is unrelated, maintained by someone else (`jeongsk`, v1.0.0), and doesn't link back to this repo.
+
+**npx** *(will work once published)*
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
 
-**npm global**
+**npm global** *(will work once published)*
 ```bash
 npm install -g @dioptx/mcp-atom-of-thoughts
 ```
@@ -57,17 +65,28 @@ npm install -g @dioptx/mcp-atom-of-thoughts
 { "command": "mcp-atom-of-thoughts" }
 ```
 
-**Smithery**
+**Smithery** *(will work once published)*
 ```bash
 npx -y @smithery/cli install @dioptx/mcp-atom-of-thoughts --client claude
 ```
 
-**Docker**
+**Docker** *(works today)*
 ```bash
 docker build -t aot .
 ```
 ```json
 { "command": "docker", "args": ["run", "-i", "--rm", "aot"] }
+```
+
+**Build from source** *(works today)*
+```bash
+git clone https://github.com/dioptx/mcp-atom-of-thoughts.git
+cd mcp-atom-of-thoughts
+npm install
+npm run build
+```
+```json
+{ "command": "node", "args": ["/absolute/path/to/mcp-atom-of-thoughts/build/index.js"] }
 ```
 
 ## How it works
@@ -215,25 +234,30 @@ The TUI and the browser viz both feed `atomcommands check_approval`. Pick whiche
 <details>
 <summary><b>Install methods</b></summary>
 
-**npx** (zero install):
+> [!NOTE]
+> Not on npm yet — see the warning in [Install](#install). Use Docker or build from source until it's published.
+
+**npx** (zero install, once published):
 ```json
 { "command": "npx", "args": ["-y", "@dioptx/mcp-atom-of-thoughts"] }
 ```
 
-**npm global**:
+**npm global** (once published):
 ```bash
 npm install -g @dioptx/mcp-atom-of-thoughts
 ```
 
-**Smithery**:
+**Smithery** (once published):
 ```bash
 npx -y @smithery/cli install @dioptx/mcp-atom-of-thoughts --client claude
 ```
 
-**Docker**:
+**Docker** (works today):
 ```bash
 docker build -t aot . && docker run -i --rm aot
 ```
+
+**Build from source** (works today): see [Install](#install).
 
 </details>
 
