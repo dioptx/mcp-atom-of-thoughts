@@ -3,3 +3,7 @@ build/
 *.tgz
 .DS_Store
 .claude/
+
+# Example viewers — generated outputs
+examples/*-review.html
+examples/*-focus.html
