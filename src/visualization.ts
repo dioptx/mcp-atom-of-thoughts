@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { GraphData } from './types.js';
 import { getD3Script } from './d3-bundle.js';
 
@@ -22,6 +22,17 @@ export function generateVisualizationHtml(data: GraphData, ctx: VizContext = {})
   return html;
 }
 
+// Only safe filename characters survive — anything else (shell metacharacters,
+// path separators, ..) is replaced. Defense in depth: even though the real fix
+// is argv-based process execution below, `name` is user/agent-supplied and
+// should never be trusted to build a filesystem path unfiltered.
+function sanitizeNameComponent(name: string): string {
+  const cleaned = name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+  // A name with no actual alphanumeric content (e.g. '////' -> '____') is as
+  // useless as an empty one — fall back rather than emit an all-underscore file.
+  return /[a-zA-Z0-9]/.test(cleaned) ? cleaned : 'diagram';
+}
+
 export function writeVisualization(html: string, outputDir?: string, name?: string, defaultOutputDir?: string): string {
   const dir = outputDir || defaultOutputDir || path.join(os.tmpdir(), 'aot-diagrams');
 
@@ -30,22 +41,39 @@ export function writeVisualization(html: string, outputDir?: string, name?: stri
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = name ? `${name}-${timestamp}.html` : `aot-review-${timestamp}.html`;
+  const safeName = name ? sanitizeNameComponent(name) : null;
+  const filename = safeName ? `${safeName}-${timestamp}.html` : `aot-review-${timestamp}.html`;
+  // path.join collapses '..' segments structurally, but resolve + a prefix check
+  // guarantees the result can't escape `dir` even if a future caller changes
+  // the join above (e.g. a Windows path listy edge case) — belt and suspenders.
   const filepath = path.join(dir, filename);
+  const resolvedDir = path.resolve(dir);
+  const resolvedFile = path.resolve(filepath);
+  if (resolvedFile !== resolvedDir && !resolvedFile.startsWith(resolvedDir + path.sep)) {
+    throw new Error('Refusing to write visualization outside its output directory');
+  }
 
   fs.writeFileSync(filepath, html, 'utf-8');
   return filepath;
 }
 
+// Uses execFileSync with an argv array (not execSync with a shell string) so
+// `filepath` is passed as a single literal argument to the OS opener — it is
+// never re-parsed by a shell, so shell metacharacters in filepath (", `, $(),
+// ;, etc.) have no special meaning. Fixes command injection reported in #3.
 export function openInBrowser(filepath: string): void {
   const platform = process.platform;
   try {
     if (platform === 'darwin') {
-      execSync(`open "${filepath}"`);
+      execFileSync('open', [filepath]);
     } else if (platform === 'linux') {
-      execSync(`xdg-open "${filepath}"`);
+      execFileSync('xdg-open', [filepath]);
     } else if (platform === 'win32') {
-      execSync(`start "" "${filepath}"`);
+      // cmd's built-in `start` requires a shell; the empty title arg avoids
+      // `start` misreading a quoted path as the window title. shell:true here
+      // is safe because filepath is still passed as a discrete argv entry,
+      // not interpolated into a shell command string.
+      execFileSync('cmd', ['/c', 'start', '""', filepath], { shell: false });
     }
   } catch {
     // Non-fatal: browser open is best-effort
