@@ -128,18 +128,38 @@ describe('ApprovalCallbackServer', () => {
     expect(JSON.parse(res.body).status).toBe('ok');
   });
 
-  it('handles CORS preflight (OPTIONS)', async () => {
-    const res = await new Promise<{ status: number; headers: http.IncomingHttpHeaders }>((resolve, reject) => {
+  // --- security: the preflight only grants the file:// (opaque "null") origin,
+  //     never a wildcard, so a web page in the same browser cannot forge an
+  //     approval against the loopback endpoint.
+  function optionsWithOrigin(origin?: string): Promise<{ status: number; headers: http.IncomingHttpHeaders }> {
+    return new Promise((resolve, reject) => {
       const u = new URL(url);
+      const headers = origin !== undefined ? { Origin: origin } : undefined;
       const req = http.request(
-        { method: 'OPTIONS', hostname: u.hostname, port: Number(u.port), path: u.pathname },
+        { method: 'OPTIONS', hostname: u.hostname, port: Number(u.port), path: u.pathname, headers },
         (r) => { r.on('data', () => {}); r.on('end', () => resolve({ status: r.statusCode || 0, headers: r.headers })); }
       );
       req.on('error', reject);
       req.end();
     });
+  }
+
+  it('handles CORS preflight (OPTIONS) and never returns a wildcard origin', async () => {
+    const res = await optionsWithOrigin('null');
     expect(res.status).toBe(204);
-    expect(res.headers['access-control-allow-origin']).toBe('*');
+    // security: must be the file:// origin "null", not "*"
+    expect(res.headers['access-control-allow-origin']).toBe('null');
+    expect(res.headers['access-control-allow-origin']).not.toBe('*');
+  });
+
+  it('security: does not grant CORS to a concrete web origin', async () => {
+    const res = await optionsWithOrigin('https://evil.example');
+    expect(res.status).toBe(204);
+    // No ACAO header (or at least not the attacker's origin / wildcard) => browser blocks the forged POST.
+    const acao = res.headers['access-control-allow-origin'];
+    expect(acao).not.toBe('*');
+    expect(acao).not.toBe('https://evil.example');
+    expect(acao === undefined || acao === 'null').toBe(true);
   });
 
   it('clearApprovals removes by sessionId', () => {

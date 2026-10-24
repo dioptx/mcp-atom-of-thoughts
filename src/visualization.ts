@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { GraphData } from './types.js';
 import { getD3Script } from './d3-bundle.js';
 
@@ -10,10 +10,43 @@ export interface VizContext {
   sessionId?: string;
 }
 
+/**
+ * HTML-escape a string so it is safe to interpolate as text content.
+ * Shared with the in-browser renderer (an identical helper is inlined into
+ * the viz template) so atom text — which can be LLM/attacker-influenceable —
+ * can never be parsed as markup. See the DOM-XSS fix in the approval sidebar.
+ */
+export function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Serialize a value for embedding inside an inline <script> block. Beyond
+ * normal JSON, the HTML-significant characters that could prematurely close
+ * the script element (or confuse the HTML parser) are escaped to their
+ * JS unicode form, so attacker-controlled atom text cannot break out of the
+ * script context (e.g. a content string containing "</script><img ...>").
+ */
+function embedScriptJson(value: unknown): string {
+  const map: Record<string, string> = {
+    '<': '\\u003c',
+    '>': '\\u003e',
+    '&': '\\u0026',
+    '\u2028': '\\u2028',
+    '\u2029': '\\u2029',
+  };
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (c) => map[c]);
+}
+
 export function generateVisualizationHtml(data: GraphData, ctx: VizContext = {}): string {
-  const ctxScript = `<script>window.AOT_DATA = ${JSON.stringify(data)};` +
-    `window.AOT_CALLBACK_URL = ${JSON.stringify(ctx.callbackUrl || null)};` +
-    `window.AOT_SESSION_ID = ${JSON.stringify(ctx.sessionId || 'default')};</script>`;
+  const ctxScript = `<script>window.AOT_DATA = ${embedScriptJson(data)};` +
+    `window.AOT_CALLBACK_URL = ${embedScriptJson(ctx.callbackUrl || null)};` +
+    `window.AOT_SESSION_ID = ${embedScriptJson(ctx.sessionId || 'default')};</script>`;
   let html = TEMPLATE.replace('</head>', `${ctxScript}\n</head>`);
   const d3Source = getD3Script();
   if (d3Source) {
@@ -40,17 +73,24 @@ export function writeVisualization(html: string, outputDir?: string, name?: stri
 export function openInBrowser(filepath: string): void {
   const platform = process.platform;
   try {
+    // Pass the path as a discrete argv element (never interpolated into a
+    // shell command line) so it cannot be interpreted as shell syntax.
     if (platform === 'darwin') {
-      execSync(`open "${filepath}"`);
+      execFile('open', [filepath], noop);
     } else if (platform === 'linux') {
-      execSync(`xdg-open "${filepath}"`);
+      execFile('xdg-open', [filepath], noop);
     } else if (platform === 'win32') {
-      execSync(`start "" "${filepath}"`);
+      // Windows "start" is a cmd builtin; the first quoted arg is the window
+      // title and the path follows as its own argument.
+      execFile(process.env.ComSpec || 'cmd', ['/c', 'start', '', filepath], noop);
     }
   } catch {
     // Non-fatal: browser open is best-effort
   }
 }
+
+// Swallow async spawn errors; opening a browser is best-effort.
+function noop(): void {}
 
 const TEMPLATE = `<!DOCTYPE html>
 <html lang="en">
@@ -342,6 +382,17 @@ const TEMPLATE = `<!DOCTYPE html>
         </div>
     </div>
     <script>
+        // HTML-escape atom text before it is interpolated into innerHTML.
+        // Atom content is LLM/attacker-influenceable, so it must be rendered
+        // as text, never parsed as markup (prevents DOM-XSS).
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
         const colors = {
             premise: { main: '#6b7280', light: '#9ca3af', glow: 'rgba(107,114,128,0.5)' },
             reasoning: { main: '#3b82f6', light: '#60a5fa', glow: 'rgba(59,130,246,0.5)' },
@@ -455,7 +506,7 @@ const TEMPLATE = `<!DOCTYPE html>
                     '<div class="phase-header" onclick="togglePhase(\\'' + type + '\\')">' +
                         '<div class="phase-info">' +
                             '<div class="phase-icon" style="background: ' + color.main + '; color: #fff;">' + config.icon + '</div>' +
-                            '<div><div class="phase-title">' + config.name + '</div><div class="phase-count">' + nodeIds.length + ' atom' + (nodeIds.length > 1 ? 's' : '') + '</div></div>' +
+                            '<div><div class="phase-title">' + config.name + '</div><div class="phase-count">' + nodeIds.length + ' atom' + (nodeIds.length !== 1 ? 's' : '') + '</div></div>' +
                         '</div>' +
                         '<div class="phase-actions">' +
                             '<button class="btn btn-approve" onclick="approvePhase(\\'' + type + '\\', event)">OK</button>' +
@@ -466,7 +517,7 @@ const TEMPLATE = `<!DOCTYPE html>
                     '<div class="phase-summary" style="--phase-color: ' + color.main + '">' +
                         '<div class="phase-summary-title">Summary</div>' +
                         '<div class="phase-summary-content">' + summary.description + '</div>' +
-                        '<ul class="phase-summary-bullets">' + summary.bulletPoints.map(function(bp) { return '<li>' + bp + '</li>'; }).join('') + '</ul>' +
+                        '<ul class="phase-summary-bullets">' + summary.bulletPoints.map(function(bp) { return '<li>' + escapeHtml(bp) + '</li>'; }).join('') + '</ul>' +
                         '<div class="phase-summary-stats">' +
                             '<div class="phase-stat"><span class="phase-stat-value">' + nodeIds.length + '</span><span class="phase-stat-label">Atoms</span></div>' +
                             '<div class="phase-stat"><span class="phase-stat-value" style="color: ' + color.light + '">' + (summary.avgConfidence * 100).toFixed(0) + '%</span><span class="phase-stat-label">Avg Conf</span></div>' +
@@ -478,7 +529,7 @@ const TEMPLATE = `<!DOCTYPE html>
                             var node = graphData.nodes.find(function(n) { return n.id === nodeId; });
                             return '<div class="node-item" id="node-item-' + nodeId + '">' +
                                 '<div class="node-header"><span class="node-id">' + nodeId + '</span><span class="node-confidence">' + (node.confidence * 100).toFixed(0) + '%</span></div>' +
-                                '<div class="node-content-text">' + node.content + '</div>' +
+                                '<div class="node-content-text">' + escapeHtml(node.content) + '</div>' +
                                 '<div class="node-actions"><button class="btn btn-approve" onclick="approveNode(\\'' + nodeId + '\\', event)">Approve</button><button class="btn btn-reject" onclick="rejectNode(\\'' + nodeId + '\\', event)">Reject</button></div>' +
                                 '<div class="feedback-container" id="feedback-' + nodeId + '"><div class="feedback-label">What needs to change?</div><textarea class="feedback-input" placeholder="Explain what is wrong..." onchange="updateFeedback(\\'' + nodeId + '\\', this.value)"></textarea></div>' +
                             '</div>';

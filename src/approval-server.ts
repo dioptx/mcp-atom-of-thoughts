@@ -46,8 +46,16 @@ export class ApprovalCallbackServer {
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    // CORS for file:// origin
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS: the viz page is opened from disk, so its Origin is the opaque
+    // "null". Only that origin is allowed to POST approvals — a wildcard ("*")
+    // would let any http(s) page the operator has open in the same browser
+    // forge an approval against this loopback endpoint. Requests with a
+    // concrete web origin are intentionally not granted CORS access.
+    const origin = req.headers.origin;
+    if (origin === 'null' || origin === undefined) {
+      res.setHeader('Access-Control-Allow-Origin', 'null');
+    }
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
