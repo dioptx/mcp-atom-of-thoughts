@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/dioptx-mcp-atom-of-thoughts-badge.png)](https://mseep.ai/app/dioptx-mcp-atom-of-thoughts)
+
 <div align="center">
 
 # Atom of Thoughts
